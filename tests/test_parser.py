@@ -1,6 +1,6 @@
 from bot.parser import match_category, parse
 
-KEYS = {"карта", "нал", "альфа", "сбер", "кредит"}
+KEYS = {"альфа", "сбер", "нал", "кальфа", "ксбер", "кредит"}
 CATS = [
     ("Продукты", ["магнит", "пятёрочка", "мария-ра", "продукты"]),
     ("Кафе и доставка", ["кафе", "кофе", "яндекс еда"]),
@@ -38,8 +38,8 @@ def test_spaced_thousands():
 
 
 def test_transfer_with_source_and_comment():
-    p = parse("5000 нал > карта вернул", KEYS)
-    assert p.account_key == "нал" and p.dest_key == "карта" and p.comment == "вернул"
+    p = parse("5000 нал > альфа вернул", KEYS)
+    assert p.account_key == "нал" and p.dest_key == "альфа" and p.comment == "вернул"
 
 
 def test_not_amount():

@@ -25,5 +25,5 @@ def load() -> Config:
         google_credentials=os.getenv("GOOGLE_CREDENTIALS", "/app/secrets/google.json"),
         tz=ZoneInfo(os.getenv("TZ_NAME", "Asia/Barnaul")),
         reminder_hour=int(os.getenv("REMINDER_HOUR", "21")),
-        default_account=os.getenv("DEFAULT_ACCOUNT", "Карта"),
+        default_account=os.getenv("DEFAULT_ACCOUNT", "Дебет Альфа"),
     )
