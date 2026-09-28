@@ -42,7 +42,10 @@ Host github-finance
 CFG
   chmod 600 "$SSH_DIR/config"
 fi
-ssh-keyscan -q github.com >> "$SSH_DIR/known_hosts" 2>/dev/null || true
+if ! ssh-keygen -F github.com -f "$SSH_DIR/known_hosts" >/dev/null 2>&1; then
+  ssh-keyscan -T 20 -t ed25519 github.com 2>/dev/null >> "$SSH_DIR/known_hosts"
+  ssh-keygen -F github.com -f "$SSH_DIR/known_hosts" >/dev/null || { echo "Не получил ключ хоста github.com"; exit 1; }
+fi
 
 echo "== 4. Ключ, с которым GitHub Actions будет заходить на сервер"
 if [ ! -f "$SSH_DIR/finance_deploy" ]; then
