@@ -49,7 +49,10 @@ function setupFinance() {
       '. Скрипт рассчитан на пустую таблицу — ничего не изменено.');
   }
 
-  ss.setSpreadsheetLocale('ru_RU');
+  // Формулы ниже записаны в en_US-синтаксисе (запятые). В ru_RU они не разбираются
+  // (Formula parse error), поэтому размечаем в en_US, а ru_RU ставим в самом конце —
+  // уже разобранные формулы Google сам покажет с «;».
+  ss.setSpreadsheetLocale('en_US');
   ss.setSpreadsheetTimeZone(TZ);
 
   const oldSheets = ss.getSheets();
@@ -74,6 +77,8 @@ function setupFinance() {
   [SH.home, SH.debt, SH.month].forEach(n => ss.getSheetByName(n).setTabColor('#4285f4'));
   [SH.acc, SH.cat].forEach(n => ss.getSheetByName(n).setTabColor('#9aa0a6'));
 
+  SpreadsheetApp.flush();
+  ss.setSpreadsheetLocale('ru_RU');
   ss.setActiveSheet(ss.getSheetByName(SH.home));
   SpreadsheetApp.flush();
   ss.toast('Все 7 листов созданы', 'Готово', 10);
