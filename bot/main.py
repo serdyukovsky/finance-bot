@@ -5,6 +5,9 @@ import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.client.session.middlewares.base import BaseRequestMiddleware
+from aiogram.methods import GetUpdates
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramNetworkError
 from aiogram.types import BotCommand, ErrorEvent
@@ -24,13 +27,43 @@ COMMANDS = [
 ]
 
 
+class RetryNetwork(BaseRequestMiddleware):
+    """Сеть до Telegram с сервера рвётся (~1 соединение из 10 висит) — повторяем запрос.
+    getUpdates не трогаем: polling сам переподключается."""
+
+    async def __call__(self, make_request, bot, method):
+        if isinstance(method, GetUpdates):
+            return await make_request(bot, method)
+        for attempt in range(3):
+            try:
+                return await make_request(bot, method)
+            except TelegramNetworkError:
+                if attempt == 2:
+                    raise
+                logging.warning("Telegram не ответил на %s, повтор %d", type(method).__name__, attempt + 1)
+                await asyncio.sleep(1 + attempt)
+
+
+async def set_commands(bot: Bot) -> None:
+    """Меню команд — не критично: пробуем в фоне, пока не получится."""
+    while True:
+        try:
+            await bot.set_my_commands(COMMANDS)
+            return
+        except TelegramNetworkError:
+            await asyncio.sleep(60)
+
+
 async def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     cfg = load()
     sheets = await asyncio.to_thread(Sheets, cfg.google_credentials, cfg.sheet_id)
     svc = Service(cfg, sheets)
 
-    bot = Bot(cfg.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    # 20 с вместо 60: зависшее соединение быстрее бросаем и повторяем
+    session = AiohttpSession(timeout=20)
+    session.middleware(RetryNetwork())
+    bot = Bot(cfg.bot_token, session=session, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
     dp.include_router(build_router(cfg, svc))
 
@@ -40,19 +73,20 @@ async def main() -> None:
         upd = event.update
         target = upd.message or (upd.callback_query.message if upd.callback_query else None)
         if target:
-            await target.answer(f"⚠️ Ошибка: {type(event.exception).__name__}. Запись могла не сохраниться — проверь таблицу.")
+            try:
+                await target.answer(f"⚠️ Ошибка: {type(event.exception).__name__}. "
+                                    "Запись могла не сохраниться — проверь таблицу.")
+            except TelegramNetworkError:
+                pass
         return True
 
-    try:
-        # меню команд — не критично; сеть до Telegram с сервера бывает нестабильной
-        await bot.set_my_commands(COMMANDS, request_timeout=15)
-    except TelegramNetworkError:
-        logging.warning("не удалось обновить меню команд — работаю дальше")
-    reminder = asyncio.create_task(reminder_loop(bot, cfg, svc))  # ссылка держит задачу от GC
+    # ссылки держат задачи от GC
+    tasks = [asyncio.create_task(reminder_loop(bot, cfg, svc)), asyncio.create_task(set_commands(bot))]
     try:
         await dp.start_polling(bot)
     finally:
-        reminder.cancel()
+        for t in tasks:
+            t.cancel()
 
 
 if __name__ == "__main__":

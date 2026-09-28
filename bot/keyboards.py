@@ -40,7 +40,7 @@ def main_menu() -> ReplyKeyboardMarkup:
             [KeyboardButton(text=MENU_PAY), KeyboardButton(text=MENU_UNDO)],
         ],
         resize_keyboard=True,
-        is_persistent=True,
+        is_persistent=False,  # сворачивается иконкой в поле ввода
         input_field_placeholder="450 магнит · +15000 зп · 5000 > нал",
     )
 
