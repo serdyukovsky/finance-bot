@@ -1,0 +1,9 @@
+.env
+secrets/
+*.json
+!.github/**
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.DS_Store
