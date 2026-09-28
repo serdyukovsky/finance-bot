@@ -6,6 +6,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramNetworkError
 from aiogram.types import BotCommand, ErrorEvent
 
 from .config import load
@@ -41,7 +42,11 @@ async def main() -> None:
             await target.answer(f"⚠️ Ошибка: {type(event.exception).__name__}. Запись могла не сохраниться — проверь таблицу.")
         return True
 
-    await bot.set_my_commands(COMMANDS)
+    try:
+        # меню команд — не критично; сеть до Telegram с сервера бывает нестабильной
+        await bot.set_my_commands(COMMANDS, request_timeout=15)
+    except TelegramNetworkError:
+        logging.warning("не удалось обновить меню команд — работаю дальше")
     reminder = asyncio.create_task(reminder_loop(bot, cfg, svc))  # ссылка держит задачу от GC
     try:
         await dp.start_polling(bot)
