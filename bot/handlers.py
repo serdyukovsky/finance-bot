@@ -13,7 +13,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from . import reports
 from .config import Config
 from .parser import match_category, norm, parse
-from .sheets import INTEREST_CAT, TRANSFER_CAT, Sheets, to_serial
+from .sheets import INTEREST_CAT, INTEREST_NOTE, TRANSFER_CAT, Sheets, _cell, to_serial
 
 log = logging.getLogger(__name__)
 
@@ -75,21 +75,21 @@ class Service:
     def _pick_cats(self, ctype: str):
         return [c for c in self.sh.categories() if c.type == ctype and c.name != INTEREST_CAT]
 
-    def choose_category(self, pid: str, idx: int) -> str:
+    def choose_category(self, pid: str, idx: int) -> tuple[str, InlineKeyboardMarkup | None]:
         item = self.pending.pop(pid, None)
         if item is None:
-            return "Эта запись устарела — отправь сумму заново."
+            return "Эта запись устарела — отправь сумму заново.", None
         cats = self._pick_cats(item["type"])
         if idx >= len(cats):
-            return "Категория не найдена — отправь сумму заново."
+            return "Категория не найдена — отправь сумму заново.", None
         cat = cats[idx]
-        self.sh.append_ops([[self.today(), item["amount"], item["account"], "", cat.name, item["comment"]]])
+        first = self.sh.append_ops([[self.today(), item["amount"], item["account"], "", cat.name, item["comment"]]])
         text = reports.op_line(item["amount"], cat.name, item["account"], comment=item["comment"])
         word = next((w for w in item["words"] if len(w) >= 3 and not w.isdigit()), None)
         if word:
             self.sh.add_keyword(cat, word)
             text += f"\n<i>Запомнил: «{word}» → {cat.name}</i>"
-        return text
+        return text, undo_kb(first, 1, item["amount"])
 
     def _transfer(self, amount: float, src, dest_key: str | None, comment: str):
         if not dest_key:
@@ -106,7 +106,7 @@ class Service:
         if dest.is_debt:
             est = self._interest_estimate(dest.name)
             if est:
-                rows.append([self.today(), -est, dest.name, "", INTEREST_CAT, "оценка — сверь с банком"])
+                rows.append([self.today(), -est, dest.name, "", INTEREST_CAT, INTEREST_NOTE])
                 extra = (f"\nПроценты за месяц ≈ {reports.money(est)} (записал оценкой)"
                          f"\nВ тело долга ≈ {reports.money(amount - est)}")
             else:
@@ -134,11 +134,19 @@ class Service:
         return "↩️ Отменено: " + ", ".join(f"{reports.money(float(r[1]))} {r[4]}" for r in rows)
 
     def undo_last(self) -> str:
-        last = self.sh.last_bot_row()
-        if last is None:
+        data = self.sh.ops()
+        i = next((i for i in range(len(data) - 1, -1, -1) if _cell(data[i], 6) == "бот"), None)
+        if i is None:
             return "Нечего отменять."
-        row, data = last
-        return self.undo(row, 1, float(data[1]))
+        first, count = i, 1
+        r = data[i]
+        # платёж по долгу пишется двумя строками: перевод + оценка процентов — отменяем вместе
+        if i > 0 and _cell(r, 4) == INTEREST_CAT and _cell(r, 5) == INTEREST_NOTE:
+            p = data[i - 1]
+            if (_cell(p, 6) == "бот" and _cell(p, 4) == TRANSFER_CAT
+                    and _cell(p, 3) == _cell(r, 2) and _cell(p, 0) == _cell(r, 0)):
+                first, count = i - 1, 2
+        return self.undo(first + 2, count, float(data[first][1]))
 
     # ---------- отчёты ----------
 
@@ -217,9 +225,9 @@ def build_router(cfg: Config, svc: Service) -> Router:
     @router.callback_query(F.data.startswith("c:"), allowed)
     async def cat_cb(c: CallbackQuery):
         _, pid, idx = c.data.split(":")
-        text = await run(svc.choose_category, pid, int(idx))
+        text, kb = await run(svc.choose_category, pid, int(idx))
         await c.answer()
-        await c.message.edit_text(text)
+        await c.message.edit_text(text, reply_markup=kb)
 
     @router.callback_query(F.data.startswith("u:"), allowed)
     async def undo_cb(c: CallbackQuery):

@@ -42,8 +42,11 @@ async def main() -> None:
         return True
 
     await bot.set_my_commands(COMMANDS)
-    asyncio.create_task(reminder_loop(bot, cfg, svc))
-    await dp.start_polling(bot)
+    reminder = asyncio.create_task(reminder_loop(bot, cfg, svc))  # ссылка держит задачу от GC
+    try:
+        await dp.start_polling(bot)
+    finally:
+        reminder.cancel()
 
 
 if __name__ == "__main__":

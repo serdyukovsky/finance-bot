@@ -5,6 +5,7 @@ asyncio.to_thread.
 """
 from __future__ import annotations
 
+import threading
 import time
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -21,6 +22,7 @@ DEBT = "Долги"
 
 EPOCH = date(1899, 12, 30)
 INTEREST_CAT = "Проценты и комиссии"
+INTEREST_NOTE = "оценка — сверь с банком"
 TRANSFER_CAT = "Перевод"
 DEBT_TYPES = ("кредитка", "кредит")
 
@@ -80,6 +82,9 @@ class Sheets:
         gc = gspread.service_account(filename=credentials_path)
         self.ss = gc.open_by_key(sheet_id)
         self._cache: dict[str, tuple[float, object]] = {}
+        # «прочитать номер строки → записать» должно быть атомарным:
+        # aiogram обрабатывает сообщения параллельно
+        self._write_lock = threading.Lock()
 
     # ---------- helpers ----------
 
@@ -156,13 +161,14 @@ class Sheets:
 
     def append_ops(self, rows: list[list]) -> int:
         """rows: [дата(date), сумма, счёт, куда, категория, комментарий]. Возвращает первую строку."""
-        ws = self.ss.worksheet(OPS)
-        first = len(ws.col_values(1)) + 1
-        last = first + len(rows) - 1
-        if last > ws.row_count:
-            ws.add_rows(max(500, last - ws.row_count))
-        values = [[to_serial(r[0]), r[1], r[2], r[3], r[4], r[5], "бот"] for r in rows]
-        ws.update(values, f"A{first}:G{last}", value_input_option=ValueInputOption.raw)
+        with self._write_lock:
+            ws = self.ss.worksheet(OPS)
+            first = len(ws.col_values(1)) + 1
+            last = first + len(rows) - 1
+            if last > ws.row_count:
+                ws.add_rows(max(500, last - ws.row_count))
+            values = [[to_serial(r[0]), r[1], r[2], r[3], r[4], r[5], "бот"] for r in rows]
+            ws.update(values, f"A{first}:G{last}", value_input_option=ValueInputOption.raw)
         self._cache.pop("accounts", None)
         return first
 
@@ -172,26 +178,19 @@ class Sheets:
 
     def delete_bot_rows(self, first: int, count: int, amount: float) -> list[list] | None:
         """Удаляет строки, если они всё ещё бот-строки и сумма первой совпадает."""
-        ws = self.ss.worksheet(OPS)
-        rows = ws.get(f"A{first}:G{first + count - 1}",
-                      value_render_option=ValueRenderOption.unformatted)
-        if len(rows) != count:
-            return None
-        if any(_cell(r, 6) != "бот" for r in rows):
-            return None
-        if abs(_num(_cell(rows[0], 1)) - amount) > 0.01:
-            return None
-        for i in range(count):
-            ws.delete_rows(first + count - 1 - i)
+        with self._write_lock:
+            ws = self.ss.worksheet(OPS)
+            rows = ws.get(f"A{first}:G{first + count - 1}",
+                          value_render_option=ValueRenderOption.unformatted)
+            if len(rows) != count:
+                return None
+            if any(_cell(r, 6) != "бот" for r in rows):
+                return None
+            if abs(_num(_cell(rows[0], 1)) - amount) > 0.01:
+                return None
+            ws.delete_rows(first, first + count - 1)
         self._cache.pop("accounts", None)
         return rows
-
-    def last_bot_row(self) -> tuple[int, list] | None:
-        data = self.ops()
-        for i in range(len(data) - 1, -1, -1):
-            if _cell(data[i], 6) == "бот":
-                return i + 2, data[i]
-        return None
 
     # ---------- отчёты ----------
 
