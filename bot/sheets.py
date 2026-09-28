@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 import gspread
+from gspread.http_client import BackOffHTTPClient
 from gspread.utils import ValueRenderOption, ValueInputOption
 
 OPS = "Операции"
@@ -79,8 +80,10 @@ class Sheets:
     CACHE_TTL = 60
 
     def __init__(self, credentials_path: str, sheet_id: str):
-        gc = gspread.service_account(filename=credentials_path)
+        # BackOff: при 429 (лимит 60 чтений/мин) ждёт и повторяет, а не падает
+        gc = gspread.service_account(filename=credentials_path, http_client=BackOffHTTPClient)
         self.ss = gc.open_by_key(sheet_id)
+        self._ws: dict[str, gspread.Worksheet] = {}
         self._cache: dict[str, tuple[float, object]] = {}
         # «прочитать номер строки → записать» должно быть атомарным:
         # aiogram обрабатывает сообщения параллельно
@@ -88,8 +91,14 @@ class Sheets:
 
     # ---------- helpers ----------
 
+    def ws(self, sheet: str) -> gspread.Worksheet:
+        """Лист по имени; ss.worksheet() каждый раз тратит запрос на метаданные."""
+        if sheet not in self._ws:
+            self._ws[sheet] = self.ss.worksheet(sheet)
+        return self._ws[sheet]
+
     def _get(self, sheet: str, rng: str) -> list[list]:
-        return self.ss.worksheet(sheet).get(
+        return self.ws(sheet).get(
             rng, value_render_option=ValueRenderOption.unformatted
         )
 
@@ -154,7 +163,7 @@ class Sheets:
         if word in [k.lower() for k in category.keywords]:
             return
         new = ", ".join(category.keywords + [word])
-        self.ss.worksheet(CAT).update_acell(f"D{category.row}", new)
+        self.ws(CAT).update_acell(f"D{category.row}", new)
         self._cache.pop("categories", None)
 
     # ---------- операции ----------
@@ -162,7 +171,7 @@ class Sheets:
     def append_ops(self, rows: list[list]) -> int:
         """rows: [дата(date), сумма, счёт, куда, категория, комментарий]. Возвращает первую строку."""
         with self._write_lock:
-            ws = self.ss.worksheet(OPS)
+            ws = self.ws(OPS)
             first = len(ws.col_values(1)) + 1
             last = first + len(rows) - 1
             if last > ws.row_count:
@@ -179,7 +188,7 @@ class Sheets:
     def delete_bot_rows(self, first: int, count: int, amount: float) -> list[list] | None:
         """Удаляет строки, если они всё ещё бот-строки и сумма первой совпадает."""
         with self._write_lock:
-            ws = self.ss.worksheet(OPS)
+            ws = self.ws(OPS)
             rows = ws.get(f"A{first}:G{first + count - 1}",
                           value_render_option=ValueRenderOption.unformatted)
             if len(rows) != count:

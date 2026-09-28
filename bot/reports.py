@@ -21,6 +21,10 @@ def money(x: float, sign: bool = False) -> str:
     return f"+{s} ₽" if sign and v > 0 else f"{s} ₽"
 
 
+def pct(rate: float) -> str:
+    return f"{rate * 100:.1f}".replace(".", ",") + "%"
+
+
 def day(d: date) -> str:
     return f"{d.day} {MONTHS[d.month - 1]}"
 
@@ -96,7 +100,7 @@ def debts_text(d: dict) -> str:
         months = r["months"]
         m = f"{int(months)} мес." if isinstance(months, (int, float)) else str(months)
         lines.append(
-            f"\n<b>{escape(r['name'])}</b> — {money(r['balance'])} под {r['rate'] * 100:.1f}%\n"
+            f"\n<b>{escape(r['name'])}</b> — {money(r['balance'])} под {pct(r['rate'])}\n"
             f"проценты ≈ {money(r['interest'])}/мес, платёж {money(r['payment'])}, "
             f"в тело {money(r['principal'])}\nдо нуля: {m}"
         )

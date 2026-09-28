@@ -153,7 +153,7 @@ def test_append_ops_is_serialized():
     sh = Sheets.__new__(Sheets)
     sh._cache, sh._write_lock = {}, threading.Lock()
     ws = WS()
-    sh.ss = type("SS", (), {"worksheet": lambda self, name: ws})()
+    sh._ws = {"Операции": ws}
     res = []
     ts = [threading.Thread(target=lambda: res.append(sh.append_ops([[TODAY, -1, "Карта", "", "Кафе", ""]])))
           for _ in range(2)]
@@ -164,3 +164,7 @@ def test_append_ops_is_serialized():
 
 def test_money_format():
     assert reports.money(-10545) == "−10\u202f545 ₽"
+
+
+def test_pct_format():
+    assert reports.pct(0.5849) == "58,5%"
