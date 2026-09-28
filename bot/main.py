@@ -18,6 +18,7 @@ COMMANDS = [
     BotCommand(command="balance", description="Остатки по счетам"),
     BotCommand(command="debts", description="Долги и куда гасить"),
     BotCommand(command="month", description="Итоги месяца"),
+    BotCommand(command="pay", description="Платёж по долгу"),
     BotCommand(command="undo", description="Отменить последнюю запись"),
     BotCommand(command="help", description="Как записывать"),
 ]

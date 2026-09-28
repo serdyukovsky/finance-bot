@@ -201,6 +201,20 @@ class Sheets:
         self._cache.pop("accounts", None)
         return rows
 
+    def update_bot_row(self, row: int, amount: float, col: str, value: str) -> list | None:
+        """Меняет одну ячейку (C — счёт, E — категория) в бот-строке, если сумма совпадает.
+        Возвращает строку A..G после правки."""
+        with self._write_lock:
+            ws = self.ws(OPS)
+            got = ws.get(f"A{row}:G{row}", value_render_option=ValueRenderOption.unformatted)
+            if not got or _cell(got[0], 6) != "бот" or abs(_num(_cell(got[0], 1)) - amount) > 0.01:
+                return None
+            ws.update([[value]], f"{col}{row}", value_input_option=ValueInputOption.raw)
+        self._cache.pop("accounts", None)
+        r = (got[0] + [""] * 7)[:7]
+        r["ABCDEFG".index(col)] = value
+        return r
+
     # ---------- отчёты ----------
 
     def home(self) -> dict:
