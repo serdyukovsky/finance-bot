@@ -5,6 +5,10 @@ services:
     volumes:
       - ./secrets:/app/secrets:ro
     restart: unless-stopped
+    # с сервера (РФ) адрес api.telegram.org из DNS не отвечает, этот — отвечает.
+    # Действует только внутри контейнера. Сломается — проверь другой IP из 149.154.160.0/20.
+    extra_hosts:
+      - "api.telegram.org:149.154.167.220"
     logging:
       driver: json-file
       options:

@@ -23,6 +23,9 @@ for url in https://api.telegram.org https://sheets.googleapis.com https://oauth2
   code=$(curl -s -o /dev/null -m 10 -w "%{http_code}" "$url" || echo "нет связи")
   echo "$url -> $code"
 done
+# этот IP закреплён за api.telegram.org в docker-compose.yml (extra_hosts)
+code=$(curl -s -o /dev/null -m 10 -w "%{http_code}" --resolve api.telegram.org:443:149.154.167.220 https://api.telegram.org || echo "нет связи")
+echo "api.telegram.org через 149.154.167.220 -> $code"
 
 echo "== 3. Ключ для чтения репозитория (deploy key)"
 if [ ! -f "$SSH_DIR/finance_repo" ]; then
@@ -44,7 +47,11 @@ ssh-keyscan -q github.com >> "$SSH_DIR/known_hosts" 2>/dev/null || true
 echo "== 4. Ключ, с которым GitHub Actions будет заходить на сервер"
 if [ ! -f "$SSH_DIR/finance_deploy" ]; then
   ssh-keygen -t ed25519 -N "" -C "finance-bot-actions" -f "$SSH_DIR/finance_deploy" >/dev/null
-  cat "$SSH_DIR/finance_deploy.pub" >> "$SSH_DIR/authorized_keys"
+fi
+# ключ Actions умеет только одно — задеплоить finance-bot (на сервере есть другие проекты)
+if ! grep -q "finance-bot-actions" "$SSH_DIR/authorized_keys" 2>/dev/null; then
+  DEPLOY_CMD='cd ~/finance-bot && git pull --ff-only && docker compose up -d --build && docker image prune -f --filter label=com.docker.compose.project=finance-bot'
+  echo "restrict,command=\"$DEPLOY_CMD\" $(cat "$SSH_DIR/finance_deploy.pub")" >> "$SSH_DIR/authorized_keys"
   chmod 600 "$SSH_DIR/authorized_keys"
 fi
 

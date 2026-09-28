@@ -26,9 +26,6 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            set -e
-            cd ~/finance-bot
-            git pull --ff-only
-            docker compose up -d --build
-            docker image prune -f
+          # на сервере ключ ограничен командой деплоя (см. scripts/server_setup.sh) —
+          # она выполнится вместо любого script
+          script: deploy
