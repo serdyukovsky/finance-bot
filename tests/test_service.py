@@ -55,6 +55,11 @@ class FakeSheets:
     def ops(self):
         return self.rows
 
+    def home(self):
+        free = sum(a.balance for a in self.accs if a.type == "обычный")
+        free += sum(r[1] for r in self.rows if r[2] in ("Карта", "Наличные") and r[4] != "Перевод")
+        return {"free": free, "obligatory": 0, "days": 10, "next_income": date(2026, 10, 8), "upcoming": []}
+
     def update_bot_row(self, row, amount, col, value):
         r = self.rows[row - 2] if 0 <= row - 2 < len(self.rows) else None
         if r is None or r[1] != amount:
@@ -81,6 +86,7 @@ def test_expense_by_keyword():
     svc = make()
     text, kb = svc.handle_text("450 магнит")
     assert svc.sh.rows[0][1:5] == [-450, "Карта", "", "Продукты"]
+    assert "Сегодня 450 ₽ из 5\u202f300 ₽ · за месяц 450 ₽" in text  # утром 53 000 / 10 дн.
     assert kb.inline_keyboard[0][0].callback_data.startswith("u:2:1:")
 
 

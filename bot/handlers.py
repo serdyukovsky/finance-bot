@@ -66,8 +66,8 @@ class Service:
         name = match_category(p.words, p.comment, [(c.name, c.keywords) for c in cats])
         if name:
             first = self.sh.append_ops([[self.today(), amount, src.name, "", name, p.comment]])
-            return (reports.op_line(amount, name, src.name, comment=p.comment),
-                    kb.record(first, 1, amount, editable=True))
+            text = reports.op_line(amount, name, src.name, comment=p.comment)
+            return text + self._spent_suffix(amount), kb.record(first, 1, amount, editable=True)
 
         pid = secrets.token_hex(3)
         self.pending[pid] = {"amount": amount, "account": src.name, "comment": p.comment,
@@ -92,7 +92,7 @@ class Service:
         if word:
             self.sh.add_keyword(cat, word)
             text += f"\n<i>Запомнил: «{word}» → {cat.name}</i>"
-        return text, kb.record(first, 1, item["amount"], editable=True)
+        return text + self._spent_suffix(item["amount"]), kb.record(first, 1, item["amount"], editable=True)
 
     def _transfer(self, amount: float, src, dest_key: str | None, comment: str) -> Reply:
         if not dest_key:
@@ -233,8 +233,23 @@ class Service:
 
     # ---------- отчёты ----------
 
+    def _spending(self) -> dict:
+        cash = {a.name for a in self.sh.accounts() if a.type == "обычный"}
+        return reports.spending(self.sh.ops(), self.sh.categories(), to_serial(self.today()),
+                                self.month_key(), cash)
+
+    def _spent_suffix(self, amount: float) -> str:
+        """Итоги дня и месяца под тратой; сбой чтения не должен мешать записи."""
+        if amount >= 0:
+            return ""
+        try:
+            return "\n" + reports.spent_line(self.sh.home(), self._spending())
+        except Exception:
+            log.exception("spent line failed")
+            return ""
+
     def today_report(self) -> str:
-        return reports.today_text(self.sh.home())
+        return reports.today_text(self.sh.home(), self._spending())
 
     def balance_report(self) -> str:
         return reports.balance_text(self.sh.accounts(fresh=True))

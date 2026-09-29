@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import date
 from html import escape
 
-from .sheets import DEBT_TYPES, INTEREST_CAT, Account, Category, from_serial
+from .sheets import DEBT_TYPES, INTEREST_CAT, Account, Category, _num, from_serial
 
 MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля",
           "августа", "сентября", "октября", "ноября", "декабря"]
@@ -58,19 +58,74 @@ def op_line(amount: float, category: str, account: str, dest: str = "", comment:
     return line
 
 
-def today_text(h: dict) -> str:
-    lines = [
-        f"<b>Можно тратить в день: {money(h['per_day'])}</b>",
+def spending(ops: list[list], cats: list[Category], today_serial: int, month_key: str,
+             cash_accounts: set[str]) -> dict:
+    """Траты = расходные категории, кроме процентов (их бот пишет сам при платеже по долгу).
+    day_cash — сегодняшние траты с обычных счетов: они уже вычтены из «свободно»."""
+    kinds = {c.name for c in cats if c.type == "расход" and c.name != INTEREST_CAT}
+    res = {"day": 0.0, "day_cash": 0.0, "month": 0.0}
+    for r in ops:
+        if len(r) < 5 or r[4] not in kinds:
+            continue
+        a = -_num(r[1])
+        if len(r) >= 8 and r[7] == month_key:
+            res["month"] += a
+        if r[0] == today_serial:
+            res["day"] += a
+            if r[2] in cash_accounts:
+                res["day_cash"] += a
+    return res
+
+
+def budget(h: dict, sp: dict) -> dict:
+    """Лимит на сегодня считается от денег на начало дня, чтобы не «уплывать» после каждой траты:
+    (свободно утром − обязательные до поступления) / дней до поступления (сегодня включительно)."""
+    morning = h["free"] + sp["day_cash"]
+    spare = morning - h["obligatory"]
+    days = max(int(h["days"]), 1)
+    limit = round(spare / days) if spare > 0 else 0
+    return {"morning": morning, "spare": spare, "days": days, "limit": limit, "left": limit - sp["day"]}
+
+
+def spent_line(h: dict, sp: dict) -> str:
+    """Строка под тратой: итоги дня и месяца."""
+    b = budget(h, sp)
+    if b["spare"] <= 0:
+        today = f"Сегодня {money(sp['day'])} · до поступления не хватает {money(-b['spare'])}"
+    elif b["left"] >= 0:
+        today = f"Сегодня {money(sp['day'])} из {money(b['limit'])}"
+    else:
+        today = f"Сегодня {money(sp['day'])} из {money(b['limit'])}, перерасход {money(-b['left'])}"
+    return f"<i>{today} · за месяц {money(sp['month'])}</i>"
+
+
+def today_text(h: dict, sp: dict) -> str:
+    b = budget(h, sp)
+    when = f"до {day(h['next_income'])}" if h["next_income"] else "до поступления"
+    if b["spare"] <= 0:
+        lines = [f"<b>⚠️ {when.capitalize()} не хватает {money(-b['spare'])}</b>",
+                 "Денег меньше, чем обязательных платежей до поступления — свободных на траты нет."]
+    elif b["left"] >= 0:
+        lines = [f"<b>На сегодня осталось {money(b['left'])}</b> из {money(b['limit'])}"]
+    else:
+        lines = [f"<b>Лимит на сегодня превышен на {money(-b['left'])}</b> (лимит {money(b['limit'])})"]
+    lines += [
+        f"Потрачено сегодня {money(sp['day'])} · за месяц {money(sp['month'])}",
         "",
-        f"Свободно: {money(h['free'])}",
+        "<b>Как считается</b>",
+        f"На картах и наличными утром: {money(b['morning'])}",
+        f"− обязательные {when}: {money(h['obligatory'])}",
     ]
-    if h["next_income"]:
-        lines.append(f"До поступления ({day(h['next_income'])}): {int(h['days'])} дн.")
-    lines.append(f"Обязательные до него: {money(h['obligatory'])}")
-    if h["upcoming"]:
-        lines += ["", "<b>Ближайшие платежи</b>"]
-        for d, name, amount in h["upcoming"]:
-            lines.append(f"{day(d)} — {escape(name)}: {money(abs(amount))}")
+    ob = [(d, n, a) for d, n, a in h["upcoming"] if not h["next_income"] or d < h["next_income"]]
+    lines += [f"   {day(d)} — {escape(n)}: {money(abs(a))}" for d, n, a in ob]
+    lines.append(f"= {money(b['spare'])} на {b['days']} дн. (сегодня включительно)")
+    if b["spare"] > 0:
+        lines.append(f"→ {money(b['limit'])} в день")
+    lines.append("<i>Ожидаемые поступления не учитываются: до них живём на то, что есть.</i>")
+    later = [(d, n, a) for d, n, a in h["upcoming"] if (d, n, a) not in ob]
+    if later:
+        lines += ["", "<b>Платежи после поступления</b>"]
+        lines += [f"{day(d)} — {escape(n)}: {money(abs(a))}" for d, n, a in later]
     return "\n".join(lines)
 
 
