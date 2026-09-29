@@ -14,6 +14,8 @@ import gspread
 from gspread.http_client import BackOffHTTPClient
 from gspread.utils import ValueRenderOption, ValueInputOption
 
+from .budget import PlanRow
+
 OPS = "Операции"
 ACC = "Счета"
 CAT = "Категории"
@@ -61,6 +63,8 @@ class Account:
     pay_day: int | None
     statement_day: int | None
     balance: float
+    start_balance: float = 0.0  # H: начальный остаток
+    start_date: date | None = None  # I: дата остатка — с неё начат учёт по счёту
 
     @property
     def is_debt(self) -> bool:
@@ -130,6 +134,8 @@ class Sheets:
                     pay_day=int(pd) if isinstance(pd, (int, float)) and pd else None,
                     statement_day=int(sd) if isinstance(sd, (int, float)) and sd else None,
                     balance=_num(_cell(r, 9, 0)),
+                    start_balance=_num(_cell(r, 7, 0)),
+                    start_date=from_serial(_cell(r, 8)),
                 ))
             return res
         return self._cached("accounts", load, fresh)
@@ -257,6 +263,31 @@ class Sheets:
         target = _cell(extra[0], 0, "—") if extra else "—"
         paid_interest = _num(_cell(extra[1], 0, 0)) if len(extra) > 1 else 0.0
         return {"rows": rows, "target": target, "paid_interest": paid_interest}
+
+    def settings(self) -> dict:
+        """Главная B4:B6: дни поступлений и доп. погашение долгов за период."""
+        v = [_cell(r, 0, "") for r in self._get(HOME, "B4:B6")] + [""] * 3
+        return {
+            "income_days": [int(_num(x)) for x in v[:2] if _num(x)],
+            "extra_debt": _num(v[2]),
+        }
+
+    def plan(self) -> list[PlanRow]:
+        res = []
+        for r in self._get(PLAN, "A2:G200"):
+            name = str(_cell(r, 0)).strip()
+            if not name:
+                continue
+            day = _cell(r, 3)
+            res.append(PlanRow(
+                name=name,
+                amount=_num(_cell(r, 1, 0)),
+                repeat=str(_cell(r, 2)).strip(),
+                day=int(day) if isinstance(day, (int, float)) and day else None,
+                once=from_serial(_cell(r, 4)),
+                status=str(_cell(r, 6)).strip(),
+            ))
+        return res
 
     def plan_upcoming(self, today: date, days: int) -> list[tuple[date, str, float]]:
         res = []

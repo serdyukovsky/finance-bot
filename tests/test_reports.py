@@ -1,7 +1,8 @@
-"""Бюджет на день и итоги трат."""
+"""Тексты: итоги трат, /today, /month."""
 from datetime import date
 
 from bot import reports
+from bot.budget import PlanRow, cash_check, period_budget, Op
 from bot.sheets import INTEREST_CAT, Category
 
 CATS = [
@@ -11,55 +12,59 @@ CATS = [
     Category("Перевод", "служебная", False, [], 5),
     Category(INTEREST_CAT, "расход", True, [], 6),
 ]
-TODAY, MONTH = 46294, "2026-09"
-CASH = {"Дебет Альфа", "Наличные"}
+TODAY, MONTH = 46294, "2026-09"  # 29.09.2026
+PLAN = [PlanRow("Кредитка Сбер — платёж", -10545, "ежемесячно", day=5),
+        PlanRow("Кредит — платёж", -4083, "ежемесячно", day=27)]
 
 
 def op(day, amount, acc, cat, month=MONTH):
     return [day, amount, acc, "", cat, "", "бот", month]
 
 
-def home(free, obligatory, days, upcoming=()):
-    return {"free": free, "obligatory": obligatory, "days": days,
-            "next_income": date(2026, 10, 8), "upcoming": list(upcoming)}
-
-
 def test_spending_counts_only_real_expenses():
     ops = [
         op(TODAY, -200, "Дебет Альфа", "Такси"),
-        op(TODAY, -300, "Кредитка Альфа", "Продукты"),   # трата, но не с «живых» денег
-        op(TODAY, -6487, "Кредитка Сбер", INTEREST_CAT),  # проценты — не траты
+        op(TODAY, -300, "Кредитка Альфа", "Продукты"),
+        op(TODAY, -6487, "Кредитка Сбер", INTEREST_CAT),
         op(TODAY, -5000, "Дебет Альфа", "Перевод"),
         op(TODAY, 15000, "Дебет Альфа", "Зарплата"),
         op(TODAY - 1, -1000, "Наличные", "Продукты"),
         op(TODAY - 40, -999, "Наличные", "Продукты", "2026-08"),
     ]
-    sp = reports.spending(ops, CATS, TODAY, MONTH, CASH)
-    assert sp == {"day": 500, "day_cash": 200, "month": 1500}
+    assert reports.spending(ops, CATS, TODAY, MONTH) == {"day": 500, "month": 1500}
 
 
-def test_limit_is_fixed_for_the_day():
-    """Лимит считается от денег на утро: трата уменьшает «осталось», а не сам лимит."""
-    sp = {"day": 1000, "day_cash": 1000, "month": 1000}
-    b = reports.budget(home(free=8000, obligatory=0, days=9), sp)  # утром было 9000
-    assert b["limit"] == 1000 and b["left"] == 0
+def test_spent_line_format():
+    assert reports.spent_line({"day": 1289, "month": 5400}, MONTH) == \
+        "<i>Сегодня: 1 289 ₽ · Сентябрь: 5 400 ₽</i>"
 
 
-def test_real_case_deficit():
-    """29.09: 1 887 ₽ на счетах, 1 289 ₽ уже потрачено, 10 545 ₽ Сберу до 8 октября."""
-    sp = {"day": 1289, "day_cash": 1289, "month": 1289}
-    h = home(1887, 10545, 9, [(date(2026, 10, 5), "Кредитка Сбер — платёж", -10545)])
-    b = reports.budget(h, sp)
-    assert b["morning"] == 3176 and b["spare"] == 3176 - 10545 and b["limit"] == 0
-    text = reports.today_text(h, sp)
-    assert "не хватает 7 369 ₽" in text and "−" not in text.split("\n")[0]
-    assert "5 октября — Кредитка Сбер — платёж" in text
-    assert "не хватает" in reports.spent_line(h, sp)
+def test_today_real_case():
+    """29.09: учёт с 28.09, на утро 3 176 ₽, потрачено 1 289 ₽, Сберу 10 545 ₽ 5 октября."""
+    today = date(2026, 9, 29)
+    b = period_budget(today, [8, 25], [Op(today, -1289, "Дебет Альфа", "расход")], PLAN,
+                      3176, date(2026, 9, 28))
+    c = cash_check(today, [8, 25], 1887, PLAN)
+    text = reports.today_text(b, c, {"day": 1289, "month": 1289}, [(date(2026, 10, 5), "Кредитка Сбер — платёж", 10545)])
+    assert "Бюджет периода превышен на 8 658 ₽" in text and "можно в день: 0 ₽" in text
+    assert "Период 25 сентября → 8 октября</b>, осталось 9 дн." in text
+    assert "Кредит — платёж" not in text  # 27.09 — до начала учёта
+    assert "не покрыт платёж 5 октября — Кредитка Сбер — платёж" in text
 
 
-def test_today_text_ok_and_overspend():
-    h = home(free=8500, obligatory=0, days=10)
-    ok = reports.today_text(h, {"day": 500, "day_cash": 500, "month": 500})  # утром 9000 → 900/день
-    assert "На сегодня осталось 400 ₽" in ok and "из 900 ₽" in ok
-    over = reports.spent_line(home(7000, 0, 10), {"day": 2000, "day_cash": 2000, "month": 2000})
-    assert "перерасход 1 100 ₽" in over
+def test_today_ok_and_no_income():
+    today = date(2026, 10, 10)
+    ok = period_budget(today, [8, 25], [Op(date(2026, 10, 6), 60000, "А", "доход")], PLAN, 0, None)
+    text = reports.today_text(ok, cash_check(today, [8, 25], 50000, PLAN), {"day": 0, "month": 0}, [])
+    assert "Можно тратить в день: 4 000 ₽" in text and "✅" in text  # 60000 / 15 дн.
+    empty = period_budget(today, [8, 25], [], PLAN, 0, None)
+    assert "поступлений в этом периоде не записано" in reports.today_text(
+        empty, cash_check(today, [8, 25], 0, PLAN), {"day": 0, "month": 0}, [])
+
+
+def test_month_interest_separate():
+    ops = [op(TODAY, 15000, "А", "Зарплата"), op(TODAY, -450, "А", "Продукты"),
+           op(TODAY, -6000, "С", INTEREST_CAT)]
+    text = reports.month_text(ops, CATS, MONTH, set())
+    assert "Траты: 450 ₽" in text and "Проценты по долгам: 6 000 ₽" in text
+    assert "Итог: <b>+8 550 ₽</b>" in text and "Куда ушло</b>\nПродукты" in text

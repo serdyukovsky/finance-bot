@@ -309,11 +309,14 @@ function buildHome_(ss) {
   sh.getRange('A1').setValue('Главная').setFontSize(16).setFontWeight('bold');
 
   sh.getRange('A3').setValue('Настройки').setFontWeight('bold');
-  sh.getRange('A4:B5').setValues([
+  // Дни — границы периодов бюджета в боте (/today); B6 бот вычитает из бюджета периода
+  sh.getRange('A4:B6').setValues([
     ['День зарплаты (самый поздний)', 8],
     ['День аванса (самый поздний)', 25],
+    ['Доп. погашение долгов за период', 0],
   ]);
-  sh.getRange('B4:B5').setBackground('#fef7e0');
+  sh.getRange('B4:B6').setBackground('#fef7e0');
+  sh.getRange('B6').setNumberFormat(MONEY);
 
   sh.getRange('A7').setValue('Сейчас').setFontWeight('bold');
   const nextPay = (cell) =>
@@ -329,7 +332,8 @@ function buildHome_(ss) {
       '=B9-TODAY()'],
     ['Обязательные платежи до него',
       '=-SUMIFS(' + P + '!B2:B,' + P + '!H2:H,">="&TODAY(),' + P + '!H2:H,"<"&B9,' + P + '!B2:B,"<0")'],
-    ['Можно тратить в день',
+    // «Можно в день» по бюджету периода считает бот (/today), здесь — только по кассе
+    ['Касса в день до поступления',
       '=ROUND((B8-B11)/B10,0)'],
     ['Чистый капитал',
       '=SUM(' + A + '!J2:J)'],

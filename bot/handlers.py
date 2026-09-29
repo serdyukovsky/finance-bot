@@ -4,18 +4,19 @@ from __future__ import annotations
 import asyncio
 import logging
 import secrets
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
+from . import budget
 from . import keyboards as kb
 from . import reports
 from .config import Config
 from .parser import match_category, parse, parse_amount
-from .sheets import INTEREST_CAT, INTEREST_NOTE, TRANSFER_CAT, Sheets, _cell, to_serial
+from .sheets import INTEREST_CAT, INTEREST_NOTE, TRANSFER_CAT, Sheets, _cell, _num, from_serial, to_serial
 
 log = logging.getLogger(__name__)
 
@@ -234,22 +235,47 @@ class Service:
     # ---------- отчёты ----------
 
     def _spending(self) -> dict:
-        cash = {a.name for a in self.sh.accounts() if a.type == "обычный"}
-        return reports.spending(self.sh.ops(), self.sh.categories(), to_serial(self.today()),
-                                self.month_key(), cash)
+        return reports.spending(self.sh.ops(), self.sh.categories(), to_serial(self.today()), self.month_key())
 
     def _spent_suffix(self, amount: float) -> str:
         """Итоги дня и месяца под тратой; сбой чтения не должен мешать записи."""
         if amount >= 0:
             return ""
         try:
-            return "\n" + reports.spent_line(self.sh.home(), self._spending())
+            return "\n" + reports.spent_line(self._spending(), self.month_key())
         except Exception:
             log.exception("spent line failed")
             return ""
 
+    def _budget_inputs(self):
+        cats = {c.name: c.type for c in self.sh.categories()}
+        ops = []
+        for r in self.sh.ops():
+            d = from_serial(_cell(r, 0))
+            if d is None or len(r) < 5:
+                continue
+            cat = str(r[4])
+            kind = "проценты" if cat == INTEREST_CAT else cats.get(cat, "")
+            ops.append(budget.Op(d, _num(r[1]), str(r[2]), kind))
+        cash_accs = [a for a in self.sh.accounts(fresh=True) if a.type == "обычный"]
+        starts = [a.start_date for a in cash_accs if a.start_date]
+        return ops, cash_accs, (min(starts) if starts else None)
+
+    def _cash_check(self, plan, settings, cash_accs) -> budget.CashCheck:
+        return budget.cash_check(self.today(), settings["income_days"],
+                                 sum(a.balance for a in cash_accs), plan)
+
     def today_report(self) -> str:
-        return reports.today_text(self.sh.home(), self._spending())
+        settings, plan = self.sh.settings(), self.sh.plan()
+        if not settings["income_days"]:
+            return "Не заданы дни поступлений на «Главной» (B4, B5)."
+        ops, cash_accs, tracking_start = self._budget_inputs()
+        today = self.today()
+        b = budget.period_budget(today, settings["income_days"], ops, plan,
+                                 sum(a.start_balance for a in cash_accs), tracking_start,
+                                 settings["extra_debt"])
+        upcoming = budget.payments_between(plan, today, today + timedelta(days=15))
+        return reports.today_text(b, self._cash_check(plan, settings, cash_accs), self._spending(), upcoming)
 
     def balance_report(self) -> str:
         return reports.balance_text(self.sh.accounts(fresh=True))
@@ -273,6 +299,13 @@ class Service:
         for d, name, amount in self.sh.plan_upcoming(today, 2):
             when = "сегодня" if d == today else reports.day(d)
             parts.append(f"⏰ {when}: {name} — {reports.money(abs(amount))}")
+        settings = self.sh.settings()
+        if settings["income_days"]:
+            _, cash_accs, _ = self._budget_inputs()
+            c = self._cash_check(self.sh.plan(), settings, cash_accs)
+            warn = reports.cash_warning(c, budget.period_for(today, settings["income_days"]).end)
+            if warn:
+                parts.append(warn)
         for a in self.sh.accounts(fresh=True):
             if a.statement_day == today.day:
                 parts.append(f"📄 Сегодня выписка по «{a.name}» — впиши новый мин. платёж в «Счета».")

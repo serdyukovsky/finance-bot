@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from bot import reports
 from bot.config import Config
 from bot.handlers import Service
+from bot.budget import PlanRow
 from bot.sheets import INTEREST_CAT, Account, Category, Sheets, to_serial
 
 TODAY = date(2026, 9, 28)
@@ -55,6 +56,12 @@ class FakeSheets:
     def ops(self):
         return self.rows
 
+    def settings(self):
+        return {"income_days": [8, 25], "extra_debt": 0}
+
+    def plan(self):
+        return [PlanRow("Кредитка Сбер — платёж", -10545, "ежемесячно", day=5)]
+
     def home(self):
         free = sum(a.balance for a in self.accs if a.type == "обычный")
         free += sum(r[1] for r in self.rows if r[2] in ("Карта", "Наличные") and r[4] != "Перевод")
@@ -86,7 +93,7 @@ def test_expense_by_keyword():
     svc = make()
     text, kb = svc.handle_text("450 магнит")
     assert svc.sh.rows[0][1:5] == [-450, "Карта", "", "Продукты"]
-    assert "Сегодня 450 ₽ из 5\u202f300 ₽ · за месяц 450 ₽" in text  # утром 53 000 / 10 дн.
+    assert "Сегодня: 450 ₽ · Сентябрь: 450 ₽" in text
     assert kb.inline_keyboard[0][0].callback_data.startswith("u:2:1:")
 
 
@@ -140,7 +147,7 @@ def test_month_report():
     svc.handle_text("10545 > сбер")
     text = svc.month_report()
     assert "Доходы: 15\u202f000 ₽" in text
-    assert "Расходы: 6\u202f450 ₽" in text  # продукты + проценты, перевод не расход
+    assert "Траты: 450 ₽" in text and "Проценты по долгам: 6\u202f000 ₽" in text  # перевод не трата
     assert "Внесено в долги: 10\u202f545 ₽, из них проценты 6\u202f000 ₽" in text
 
 
@@ -275,3 +282,12 @@ def test_callback_data_fits_telegram_limit():
     svc = make()
     _, kb = svc.pay_source("кальфа", 1234567.89)
     assert all(len(d.encode()) <= 64 for _, d in buttons(kb))
+
+
+def test_today_report_through_service():
+    svc = make()  # 28.09, период 25.09→08.10, «Карта» 50000 без даты остатка
+    svc.handle_text("+30000 зп")
+    svc.handle_text("450 магнит")
+    text = svc.today_report()
+    # 30000 − 10545 − 450 = 19005 на 10 дней
+    assert "Можно тратить в день: 1\u202f900 ₽" in text and "✅" in text
