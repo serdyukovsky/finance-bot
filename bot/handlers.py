@@ -275,7 +275,13 @@ class Service:
                                  sum(a.start_balance for a in cash_accs), tracking_start,
                                  settings["extra_debt"])
         upcoming = budget.payments_between(plan, today, today + timedelta(days=15))
-        return reports.today_text(b, self._cash_check(plan, settings, cash_accs), self._spending(), upcoming)
+        return reports.today_text(b, self._cash_check(plan, settings, cash_accs), self._day_summary(), upcoming)
+
+    def _day_summary(self) -> str:
+        today = self.today()
+        debt_names = {a.name for a in self.sh.accounts() if a.is_debt}
+        s = reports.summary(self.sh.ops(), self.sh.categories(), debt_names, today, today)
+        return reports.day_text(s, today, self._spending()["month"])
 
     def balance_report(self) -> str:
         return reports.balance_text(self.sh.accounts(fresh=True))
@@ -292,11 +298,8 @@ class Service:
     def evening_reminder(self) -> str:
         today = self.today()
         serial = to_serial(today)
-        ops = self.sh.ops()
-        if any(r and r[0] == serial for r in ops):
-            debt_names = {a.name for a in self.sh.accounts() if a.is_debt}
-            s = reports.summary(ops, self.sh.categories(), debt_names, today, today)
-            parts = [reports.day_text(s, today, self._spending()["month"]), ""]
+        if any(r and r[0] == serial for r in self.sh.ops()):
+            parts = [self._day_summary(), ""]
         else:
             parts = ["Сегодня ничего не записано. Были траты?"]
         for d, name, amount in self.sh.plan_upcoming(today, 2):

@@ -45,7 +45,7 @@ def test_today_real_case():
     b = period_budget(today, [8, 25], [Op(today, -1289, "Дебет Альфа", "расход")], PLAN,
                       3176, date(2026, 9, 28))
     c = cash_check(today, [8, 25], 1887, PLAN)
-    text = reports.today_text(b, c, {"day": 1289, "month": 1289}, [(date(2026, 10, 5), "Кредитка Сбер — платёж", 10545)])
+    text = reports.today_text(b, c, "Итоги дня", [(date(2026, 10, 5), "Кредитка Сбер — платёж", 10545)])
     assert "Бюджет периода превышен на 8 658 ₽" in text and "можно в день: 0 ₽" in text
     assert "Период 25 сентября → 8 октября</b>, осталось 9 дн." in text
     assert "Кредит — платёж" not in text  # 27.09 — до начала учёта
@@ -55,11 +55,11 @@ def test_today_real_case():
 def test_today_ok_and_no_income():
     today = date(2026, 10, 10)
     ok = period_budget(today, [8, 25], [Op(date(2026, 10, 6), 60000, "А", "доход")], PLAN, 0, None)
-    text = reports.today_text(ok, cash_check(today, [8, 25], 50000, PLAN), {"day": 0, "month": 0}, [])
+    text = reports.today_text(ok, cash_check(today, [8, 25], 50000, PLAN), "", [])
     assert "Можно тратить в день: 4 000 ₽" in text and "✅" in text  # 60000 / 15 дн.
     empty = period_budget(today, [8, 25], [], PLAN, 0, None)
     assert "поступлений в этом периоде не записано" in reports.today_text(
-        empty, cash_check(today, [8, 25], 0, PLAN), {"day": 0, "month": 0}, [])
+        empty, cash_check(today, [8, 25], 0, PLAN), "", [])
 
 
 def test_month_interest_separate():

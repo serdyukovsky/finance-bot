@@ -294,6 +294,7 @@ def test_today_report_through_service():
     text = svc.today_report()
     # 30000 − 10545 − 450 = 19005 на 10 дней
     assert "Можно тратить в день: 1\u202f900 ₽" in text and "✅" in text
+    assert text.startswith("<b>Итоги дня · 28 сентября</b>") and "🏷 Продукты 450 ₽" in text
 
 
 def test_evening_day_summary():

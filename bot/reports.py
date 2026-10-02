@@ -93,13 +93,14 @@ def cash_warning(c: CashCheck, until: date) -> str | None:
             f"не покрыт платёж {day(d)} — {escape(name)}")
 
 
-def today_text(b: Budget, c: CashCheck, sp: dict, upcoming: list[tuple[date, str, float]]) -> str:
+def today_text(b: Budget, c: CashCheck, day_block: str, upcoming: list[tuple[date, str, float]]) -> str:
+    """Итоги дня сверху, ниже — бюджет периода и касса."""
     p = b.period
     if b.overspent:
         head = f"<b>⚠️ Бюджет периода превышен на {money(b.overspent)}</b> — можно в день: 0 ₽"
     else:
         head = f"<b>Можно тратить в день: {money(b.per_day)}</b>"
-    lines = [head, f"Потрачено сегодня: {money(sp['day'])}", "",
+    lines = [day_block, "", head, "",
              f"<b>Период {day(p.start)} → {day(p.end)}</b>, осталось {b.days_left} дн. (с сегодня)"]
     if b.from_balances:
         lines.append(f"Доход: {money(b.income)} — остатки на начало учёта + поступления")
