@@ -289,13 +289,16 @@ class Service:
 
     # ---------- напоминание ----------
 
-    def evening_reminder(self) -> str | None:
+    def evening_reminder(self) -> str:
         today = self.today()
         serial = to_serial(today)
-        has_today = any(r and r[0] == serial for r in self.sh.ops())
-        parts = []
-        if not has_today:
-            parts.append("Сегодня ничего не записано. Были траты?")
+        ops = self.sh.ops()
+        if any(r and r[0] == serial for r in ops):
+            debt_names = {a.name for a in self.sh.accounts() if a.is_debt}
+            s = reports.summary(ops, self.sh.categories(), debt_names, today, today)
+            parts = [reports.day_text(s, today, self._spending()["month"]), ""]
+        else:
+            parts = ["Сегодня ничего не записано. Были траты?"]
         for d, name, amount in self.sh.plan_upcoming(today, 2):
             when = "сегодня" if d == today else reports.day(d)
             parts.append(f"⏰ {when}: {name} — {reports.money(abs(amount))}")
@@ -309,7 +312,17 @@ class Service:
         for a in self.sh.accounts(fresh=True):
             if a.statement_day == today.day:
                 parts.append(f"📄 Сегодня выписка по «{a.name}» — впиши новый мин. платёж в «Счета».")
-        return "\n".join(parts) or None
+        return "\n".join(parts).strip()
+
+    def week_report(self) -> str:
+        """Неделя пн–вс, которая заканчивается сегодня (или идёт сейчас), и сравнение с прошлой."""
+        end = self.today()
+        start = end - timedelta(days=end.weekday())
+        ops, cats = self.sh.ops(), self.sh.categories()
+        debt_names = {a.name for a in self.sh.accounts() if a.is_debt}
+        s = reports.summary(ops, cats, debt_names, start, end)
+        prev = reports.summary(ops, cats, debt_names, start - timedelta(days=7), start - timedelta(days=1))
+        return reports.week_text(s, prev, start, end)
 
 
 def build_router(cfg: Config, svc: Service) -> Router:
@@ -440,15 +453,20 @@ def build_router(cfg: Config, svc: Service) -> Router:
 
 
 async def reminder_loop(bot, cfg: Config, svc: Service):
-    last_sent: date | None = None
+    """Итоги дня — каждый вечер в REMINDER_HOUR, итоги недели — в воскресенье в WEEKLY_HOUR."""
+    sent: dict[str, date] = {}
+    jobs = [("day", lambda now: now.hour == cfg.reminder_hour, svc.evening_reminder),
+            ("week", lambda now: now.weekday() == 6 and now.hour == cfg.weekly_hour, svc.week_report)]
     while True:
-        try:
-            now = datetime.now(cfg.tz)
-            if now.hour == cfg.reminder_hour and last_sent != now.date():
-                last_sent = now.date()
-                text = await asyncio.to_thread(svc.evening_reminder)
+        now = datetime.now(cfg.tz)
+        for name, due, make in jobs:
+            if not due(now) or sent.get(name) == now.date():
+                continue
+            sent[name] = now.date()
+            try:
+                text = await asyncio.to_thread(make)
                 if text and cfg.allowed_user_id:
                     await bot.send_message(cfg.allowed_user_id, text)
-        except Exception:
-            log.exception("reminder failed")
+            except Exception:
+                log.exception("%s report failed", name)
         await asyncio.sleep(30)

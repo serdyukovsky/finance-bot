@@ -62,6 +62,9 @@ class FakeSheets:
     def plan(self):
         return [PlanRow("Кредитка Сбер — платёж", -10545, "ежемесячно", day=5)]
 
+    def plan_upcoming(self, today, days):
+        return []
+
     def home(self):
         free = sum(a.balance for a in self.accs if a.type == "обычный")
         free += sum(r[1] for r in self.rows if r[2] in ("Карта", "Наличные") and r[4] != "Перевод")
@@ -291,3 +294,39 @@ def test_today_report_through_service():
     text = svc.today_report()
     # 30000 − 10545 − 450 = 19005 на 10 дней
     assert "Можно тратить в день: 1\u202f900 ₽" in text and "✅" in text
+
+
+def test_evening_day_summary():
+    svc = make()
+    svc.handle_text("450 магнит")
+    svc.handle_text("300 нал магнит")
+    svc.handle_text("+15000 зп")
+    svc.handle_text("10545 > сбер")
+    text = svc.evening_reminder()
+    assert "Итоги дня · 28 сентября" in text
+    assert "Потрачено: <b>750 ₽</b>" in text
+    assert "💳 Карта 450 ₽ · Наличные 300 ₽" in text
+    assert "🏷 Продукты 750 ₽" in text
+    assert f"Поступило: <b>{reports.money(15000, sign=True)}</b>" in text and f"Зарплата {reports.money(15000)} → Карта" in text
+    assert f"В долги: Кредитка Сбер {reports.money(10545)}" in text and "из них проценты" in text
+
+
+def test_evening_nothing_recorded():
+    assert make().evening_reminder().startswith("Сегодня ничего не записано")
+
+
+
+
+def test_week_report():
+    svc = make()
+    svc.handle_text("450 магнит")  # пн 28.09
+    svc.today = lambda: date(2026, 9, 21)  # прошлая неделя
+    svc.handle_text("1000 магнит")
+    svc.today = lambda: date(2026, 10, 4)  # вс
+    svc.handle_text("100 нал магнит")
+    text = svc.week_report()
+    assert "Итоги недели · 28 сентября – 4 октября" in text
+    assert "Потрачено: <b>550 ₽</b>, в среднем 79 ₽/день" in text
+    assert "Карта: 450 ₽" in text and "Наличные: 100 ₽" in text
+    assert "Пн 450 · Вт 0" in text and "Вс 100" in text
+    assert f"Прошлая неделя: {reports.money(1000)} (↓45%)" in text

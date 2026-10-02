@@ -14,6 +14,7 @@ class Config:
     tz: ZoneInfo
     reminder_hour: int
     default_account: str
+    weekly_hour: int = 20  # итоги недели в воскресенье
 
 
 def load() -> Config:
@@ -26,4 +27,5 @@ def load() -> Config:
         tz=ZoneInfo(os.getenv("TZ_NAME", "Asia/Barnaul")),
         reminder_hour=int(os.getenv("REMINDER_HOUR", "21")),
         default_account=os.getenv("DEFAULT_ACCOUNT", "Дебет Альфа"),
+        weekly_hour=int(os.getenv("WEEKLY_HOUR", "20")),
     )

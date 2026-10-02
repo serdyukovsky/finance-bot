@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 from html import escape
 
 from .budget import Budget, CashCheck
@@ -207,4 +207,99 @@ def month_text(ops: list[list], cats: list[Category], month_key: str, debt_names
         lines += ["", "<b>Куда ушло</b>"]
         lines += [f"{escape(k)}: {money(v)}" for k, v in top if v]
     lines += ["", f"Внесено в долги: {money(to_debts)}, из них проценты {money(interest)}"]
+    return "\n".join(lines)
+
+
+# ---------- итоги дня и недели ----------
+
+WEEKDAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+
+
+def summary(ops: list[list], cats: list[Category], debt_names: set[str], start: date, end: date) -> dict:
+    """Итоги за [start, end]: траты по счетам и категориям, поступления, внесено в долги."""
+    types = {c.name: c.type for c in cats}
+    res = {"spent": 0.0, "by_acc": defaultdict(float), "by_cat": defaultdict(float),
+           "by_day": defaultdict(float), "income": 0.0, "incomes": defaultdict(float),
+           "to_debts": defaultdict(float), "interest": 0.0}
+    for r in ops:
+        d = from_serial(r[0] if r else None)
+        if d is None or not start <= d <= end or len(r) < 5:
+            continue
+        amount, acc, dest, cat = _num(r[1]), str(r[2]), str(r[3]), str(r[4])
+        kind = types.get(cat)
+        if cat == INTEREST_CAT:
+            res["interest"] += -amount
+        elif kind == "расход":
+            res["spent"] += -amount
+            res["by_acc"][acc] += -amount
+            res["by_cat"][cat] += -amount
+            res["by_day"][d] += -amount
+        elif kind == "доход":
+            res["income"] += amount
+            res["incomes"][(cat, acc)] += amount
+        elif dest in debt_names:
+            res["to_debts"][dest] += -amount
+    return res
+
+
+def _top(items: dict, n: int | None = None) -> list[tuple[str, float]]:
+    return sorted(((k, v) for k, v in items.items() if round(v)), key=lambda kv: kv[1], reverse=True)[:n]
+
+
+def _joined(items: dict) -> str:
+    return " · ".join(f"{escape(k)} {money(v)}" for k, v in _top(items))
+
+
+def _income_lines(s: dict) -> list[str]:
+    if not s["income"]:
+        return []
+    lines = [f"Поступило: <b>{money(s['income'], sign=True)}</b>"]
+    lines += [f"   {escape(cat)} {money(v)} → {escape(acc)}" for (cat, acc), v in _top(s["incomes"])]
+    return lines
+
+
+def _debt_lines(s: dict) -> list[str]:
+    if not s["to_debts"]:
+        return []
+    if len(s["to_debts"]) == 1:
+        line = f"В долги: {_joined(s['to_debts'])}"
+    else:
+        line = f"В долги: {money(sum(s['to_debts'].values()))} — {_joined(s['to_debts'])}"
+    if s["interest"]:
+        line += f"\n   из них проценты ≈ {money(s['interest'])}"
+    return [line]
+
+
+def day_text(s: dict, d: date, month_spent: float) -> str:
+    lines = [f"<b>Итоги дня · {day(d)}</b>"]
+    if s["spent"]:
+        lines += [f"Потрачено: <b>{money(s['spent'])}</b>",
+                  f"💳 {_joined(s['by_acc'])}",
+                  f"🏷 {_joined(s['by_cat'])}"]
+    else:
+        lines.append("Трат нет")
+    lines += _income_lines(s) + _debt_lines(s)
+    lines.append(f"<i>{MONTHS_NOM[d.month - 1]}: потрачено {money(month_spent)}</i>")
+    return "\n".join(lines)
+
+
+def week_text(s: dict, prev: dict, start: date, end: date) -> str:
+    days = (end - start).days + 1
+    lines = [f"<b>Итоги недели · {day(start)} – {day(end)}</b>",
+             f"Потрачено: <b>{money(s['spent'])}</b>, в среднем {money(s['spent'] / days)}/день"]
+    lines += _income_lines(s)
+    lines.append(f"Итог: <b>{money(s['income'] - s['spent'], sign=True)}</b>")
+    if s["spent"]:
+        lines += ["", "<b>По счетам</b>"] + [f"{escape(k)}: {money(v)}" for k, v in _top(s["by_acc"])]
+        lines += ["", "<b>По категориям</b>"] + [f"{escape(k)}: {money(v)}" for k, v in _top(s["by_cat"])]
+        by_day = [f"{WEEKDAYS[d.weekday()]} {money(s['by_day'].get(d, 0)).removesuffix(' ₽')}"
+                  for d in (start + timedelta(days=i) for i in range(days))]
+        lines += ["", "<b>По дням</b>", " · ".join(by_day)]
+    debts = _debt_lines(s)
+    if debts:
+        lines += [""] + debts
+    if prev["spent"]:
+        diff = (s["spent"] - prev["spent"]) / prev["spent"] * 100
+        arrow = "↑" if diff > 0 else "↓"
+        lines += ["", f"Прошлая неделя: {money(prev['spent'])} ({arrow}{abs(diff):.0f}%)"]
     return "\n".join(lines)
