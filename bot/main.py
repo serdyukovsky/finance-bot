@@ -60,8 +60,8 @@ async def main() -> None:
     sheets = await asyncio.to_thread(Sheets, cfg.google_credentials, cfg.sheet_id)
     svc = Service(cfg, sheets)
 
-    # 20 с вместо 60: зависшее соединение быстрее бросаем и повторяем
-    session = AiohttpSession(timeout=20)
+    # Telegram — через xray-клиент на хосте (TELEGRAM_PROXY): напрямую с сервера соединения виснут
+    session = AiohttpSession(proxy=cfg.telegram_proxy, timeout=20) if cfg.telegram_proxy else AiohttpSession(timeout=20)
     session.middleware(RetryNetwork())
     bot = Bot(cfg.bot_token, session=session, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()

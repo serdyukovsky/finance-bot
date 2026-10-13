@@ -10,7 +10,9 @@
 - **Telegram-бот** (`bot/`) — быстрый ввод и отчёты. Python 3.12, aiogram 3 (long polling), gspread 6, сервисный аккаунт Google.
 - **Сервер**: Ubuntu, `194.34.239.95`, заходить `ssh maxbot` (алиас в `~/.ssh/config`, root по ключу). Бот в Docker Compose (`restart: unless-stopped`), код в `~/finance-bot`.
   На сервере **другие проекты** (systemd-сервисы, nginx, pocketbase, xray) — не трогать; `docker image prune` только с фильтром по проекту.
-  Сервер в РФ: `api.telegram.org` из DNS не отвечает → в `docker-compose.yml` `extra_hosts` закрепляет рабочий IP `149.154.167.220`. Если бот перестал видеть Telegram — первым делом проверить этот IP.
+  Сервер в РФ: напрямую больше половины соединений к Telegram виснут → бот ходит через прокси `TELEGRAM_PROXY=http://127.0.0.1:10809`
+  (xray-клиент на хосте, systemd `xray-maxbot`, общий с MaxPhotoBot и routine-bot), контейнер в `network_mode: host`.
+  Бот перестал видеть Telegram — первым делом `systemctl status xray-maxbot` и `curl -x http://127.0.0.1:10809 https://api.telegram.org`.
 - **Деплой**: push в `main` → GitHub Actions (`.github/workflows/deploy.yml`): pytest → SSH на сервер. Ключ Actions в `authorized_keys` ограничен `command=` (см. `server_setup.sh`) — он выполняет только `git pull --ff-only && docker compose up -d --build`.
 - **Репозиторий**: https://github.com/serdyukovsky/finance-bot (приватный).
 

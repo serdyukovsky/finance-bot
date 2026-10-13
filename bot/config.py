@@ -15,6 +15,7 @@ class Config:
     reminder_hour: int
     default_account: str
     weekly_hour: int = 20  # итоги недели в воскресенье
+    telegram_proxy: str | None = None  # с сервера (РФ) Telegram напрямую режется
 
 
 def load() -> Config:
@@ -28,4 +29,5 @@ def load() -> Config:
         reminder_hour=int(os.getenv("REMINDER_HOUR", "21")),
         default_account=os.getenv("DEFAULT_ACCOUNT", "Дебет Альфа"),
         weekly_hour=int(os.getenv("WEEKLY_HOUR", "20")),
+        telegram_proxy=os.getenv("TELEGRAM_PROXY", "").strip() or None,
     )
