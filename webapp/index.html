@@ -671,17 +671,32 @@ document.getElementById('app').addEventListener('input', e => {  // поиск �
   document.getElementById('opslist').innerHTML = l.html; document.getElementById('opsn').textContent = l.n;
 });
 
-fetch(window.DATA_URL || 'data.json', { cache: 'no-store' })
-  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
-  .then(d => {
-    DATA = d; S.anchor = d.today;
-    OPS = d.ops.map(([date, amount, cat, account, dest, comment, kind]) => ({ date, amount, cat, account, dest, comment, kind }));
-    OPS.forEach(o => { if (o.kind === 'расход') DAY_TOTALS[o.date] = (DAY_TOTALS[o.date] || 0) - o.amount; });
-    if (['day', 'week', 'month'].includes(params.get('mode'))) S.mode = params.get('mode');  // для проверки: ?mode=day&pick=1
-    render();
-    if (params.get('pick')) openPick();
-  })
-  .catch(e => { document.getElementById('app').innerHTML = `<div class="err">Не удалось загрузить данные (${esc(e.message)})</div>`; });
+// в Telegram — API с подписью initData; локально — снимок data.json
+const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
+let loadedAt = 0;
+function load() {
+  if (!tg?.initData && !LOCAL) {
+    document.getElementById('app').innerHTML = '<div class="err">Открой приложение из бота — кнопка «Аналитика» слева от поля ввода.</div>';
+    return Promise.resolve();
+  }
+  const req = tg?.initData ? fetch('/api/dashboard', { headers: { 'X-Telegram-Init-Data': tg.initData }, cache: 'no-store' })
+    : fetch('data.json', { cache: 'no-store' });
+  return req.then(r => { if (!r.ok) throw new Error(r.status === 403 ? 'нет доступа' : 'ошибка ' + r.status); return r.json(); })
+    .then(d => {
+      const first = !DATA;
+      DATA = d; loadedAt = Date.now(); DAY_TOTALS = {};
+      if (first) S.anchor = d.today;
+      OPS = d.ops.map(([date, amount, cat, account, dest, comment, kind]) => ({ date, amount, cat, account, dest, comment, kind }));
+      OPS.forEach(o => { if (o.kind === 'расход') DAY_TOTALS[o.date] = (DAY_TOTALS[o.date] || 0) - o.amount; });
+      if (first && ['day', 'week', 'month'].includes(params.get('mode'))) S.mode = params.get('mode');  // для проверки: ?mode=day&pick=1
+      render(first);
+      if (first && params.get('pick')) openPick();
+    })
+    .catch(e => { if (!DATA) document.getElementById('app').innerHTML = `<div class="err">Не удалось загрузить данные (${esc(e.message)})</div>`; });
+}
+load();
+// вернулся в приложение через минуту и больше — подтягиваем свежие записи
+document.addEventListener('visibilitychange', () => { if (!document.hidden && DATA && Date.now() - loadedAt > 60e3) load(); });
 </script>
 </body>
 </html>

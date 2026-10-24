@@ -11,7 +11,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command, CommandStart
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
-from . import budget
+from . import analytics, budget
 from . import keyboards as kb
 from . import reports
 from .config import Config
@@ -277,6 +277,11 @@ class Service:
         debt_names = {a.name for a in self.sh.accounts() if a.is_debt}
         s = reports.summary(self.sh.ops(), self.sh.categories(), debt_names, today, today)
         return reports.day_text(s, today, self._spending()["month"])
+
+    def dashboard(self) -> dict:
+        """Данные мини-приложения."""
+        return analytics.build(self.today(), self.sh.ops(), self.sh.accounts(fresh=True), self.sh.categories(),
+                               self.sh.plan(), self.sh.settings(), self.sh.debts())
 
     def balance_report(self) -> str:
         return reports.balance_text(self.sh.accounts(fresh=True))

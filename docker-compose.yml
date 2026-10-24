@@ -5,6 +5,9 @@ services:
     volumes:
       - ./secrets:/app/secrets:ro
     restart: unless-stopped
+    # мини-приложение: nginx (finance.gidmate.ru) → сюда; наружу порт не открыт
+    ports:
+      - "127.0.0.1:8120:8080"
     # сеть хоста: Telegram — через xray-клиент на 127.0.0.1 (TELEGRAM_PROXY в .env)
     network_mode: host
     logging:

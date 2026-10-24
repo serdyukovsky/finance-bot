@@ -15,6 +15,8 @@ class Config:
     reminder_hour: int
     default_account: str
     weekly_hour: int = 20  # итоги недели в воскресенье
+    webapp_url: str = ""  # мини-приложение; пусто — кнопку в боте не ставим
+    web_port: int = 8080
     telegram_proxy: str | None = None  # с сервера (РФ) Telegram напрямую режется
 
 
@@ -29,5 +31,7 @@ def load() -> Config:
         reminder_hour=int(os.getenv("REMINDER_HOUR", "21")),
         default_account=os.getenv("DEFAULT_ACCOUNT", "Дебет Альфа"),
         weekly_hour=int(os.getenv("WEEKLY_HOUR", "20")),
+        webapp_url=os.getenv("WEBAPP_URL", "").strip(),
+        web_port=int(os.getenv("WEB_PORT", "8080")),
         telegram_proxy=os.getenv("TELEGRAM_PROXY", "").strip() or None,
     )

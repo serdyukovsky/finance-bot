@@ -10,11 +10,12 @@ from aiogram.client.session.middlewares.base import BaseRequestMiddleware
 from aiogram.methods import GetUpdates
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramNetworkError
-from aiogram.types import BotCommand, ErrorEvent
+from aiogram.types import BotCommand, ErrorEvent, MenuButtonWebApp, WebAppInfo
 
 from .config import load
 from .handlers import Service, build_router, reminder_loop
 from .sheets import Sheets
+from .webapp import serve
 
 COMMANDS = [
     BotCommand(command="today", description="Сколько можно тратить сегодня"),
@@ -44,11 +45,14 @@ class RetryNetwork(BaseRequestMiddleware):
                 await asyncio.sleep(1 + attempt)
 
 
-async def set_commands(bot: Bot) -> None:
-    """Меню команд — не критично: пробуем в фоне, пока не получится."""
+async def set_commands(bot: Bot, cfg) -> None:
+    """Меню команд и кнопка «Аналитика» слева от ввода — не критично: пробуем в фоне, пока не получится."""
     while True:
         try:
             await bot.set_my_commands(COMMANDS)
+            if cfg.webapp_url and cfg.allowed_user_id:
+                await bot.set_chat_menu_button(chat_id=cfg.allowed_user_id, menu_button=MenuButtonWebApp(
+                    text="Аналитика", web_app=WebAppInfo(url=cfg.webapp_url)))
             return
         except TelegramNetworkError:
             await asyncio.sleep(60)
@@ -81,10 +85,12 @@ async def main() -> None:
         return True
 
     # ссылки держат задачи от GC
-    tasks = [asyncio.create_task(reminder_loop(bot, cfg, svc)), asyncio.create_task(set_commands(bot))]
+    tasks = [asyncio.create_task(reminder_loop(bot, cfg, svc)), asyncio.create_task(set_commands(bot, cfg))]
+    web = await serve(cfg, svc.dashboard)
     try:
         await dp.start_polling(bot)
     finally:
+        await web.cleanup()
         for t in tasks:
             t.cancel()
 
