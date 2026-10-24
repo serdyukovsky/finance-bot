@@ -247,7 +247,7 @@ class Service:
             log.exception("spent line failed")
             return ""
 
-    def _budget_inputs(self):
+    def _budget_ops(self) -> list[budget.Op]:
         cats = {c.name: c.type for c in self.sh.categories()}
         ops = []
         for r in self.sh.ops():
@@ -256,26 +256,21 @@ class Service:
                 continue
             cat = str(r[4])
             kind = "проценты" if cat == INTEREST_CAT else cats.get(cat, "")
-            ops.append(budget.Op(d, _num(r[1]), str(r[2]), kind))
-        cash_accs = [a for a in self.sh.accounts(fresh=True) if a.type == "обычный"]
-        starts = [a.start_date for a in cash_accs if a.start_date]
-        return ops, cash_accs, (min(starts) if starts else None)
+            ops.append(budget.Op(d, _num(r[1]), str(r[2]), kind, cat, str(_cell(r, 3))))
+        return ops
 
-    def _cash_check(self, plan, settings, cash_accs) -> budget.CashCheck:
-        return budget.cash_check(self.today(), settings["income_days"],
-                                 sum(a.balance for a in cash_accs), plan)
+    def _free(self, settings) -> budget.Free:
+        cash = sum(a.balance for a in self.sh.accounts(fresh=True) if a.type == "обычный")
+        return budget.free_money(self.today(), settings["income_days"], self._budget_ops(), self.sh.plan(),
+                                 cash, settings["extra_debt"])
 
     def today_report(self) -> str:
-        settings, plan = self.sh.settings(), self.sh.plan()
+        settings = self.sh.settings()
         if not settings["income_days"]:
-            return "Не заданы дни поступлений на «Главной» (B4, B5)."
-        ops, cash_accs, tracking_start = self._budget_inputs()
+            return "Не заданы дни зарплаты на «Главной» (B4, B5)."
         today = self.today()
-        b = budget.period_budget(today, settings["income_days"], ops, plan,
-                                 sum(a.start_balance for a in cash_accs), tracking_start,
-                                 settings["extra_debt"])
-        upcoming = budget.payments_between(plan, today, today + timedelta(days=15))
-        return reports.today_text(b, self._cash_check(plan, settings, cash_accs), self._day_summary(), upcoming)
+        upcoming = budget.payments_between(self.sh.plan(), today, today + timedelta(days=15))
+        return reports.today_text(self._free(settings), self._day_summary(), upcoming)
 
     def _day_summary(self) -> str:
         today = self.today()
@@ -307,9 +302,7 @@ class Service:
             parts.append(f"⏰ {when}: {name} — {reports.money(abs(amount))}")
         settings = self.sh.settings()
         if settings["income_days"]:
-            _, cash_accs, _ = self._budget_inputs()
-            c = self._cash_check(self.sh.plan(), settings, cash_accs)
-            warn = reports.cash_warning(c, budget.period_for(today, settings["income_days"]).end)
+            warn = reports.cash_warning(self._free(settings))
             if warn:
                 parts.append(warn)
         for a in self.sh.accounts(fresh=True):

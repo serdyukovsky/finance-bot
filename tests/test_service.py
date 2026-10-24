@@ -292,8 +292,9 @@ def test_today_report_through_service():
     svc.handle_text("+30000 зп")
     svc.handle_text("450 магнит")
     text = svc.today_report()
-    # 30000 − 10545 − 450 = 19005 на 10 дней
-    assert "Можно тратить в день: 1\u202f900 ₽" in text and "✅" in text
+    # до 8.10 — 10 дней; на счетах 53000 − Сбер 10545 = 42455, лимит на утро (42455 + 450) / 10
+    assert f"Можно ещё сегодня: {reports.money(3840)}</b> (лимит {reports.money(4290)} в день)" in text
+    assert "До зарплаты 8 октября" in text
     assert text.startswith("<b>Итоги дня · 28 сентября</b>") and "🏷 Продукты 450 ₽" in text
 
 

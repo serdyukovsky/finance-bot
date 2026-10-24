@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Финансы</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  color-scheme:light;
+  --bg:#efefef; --card:#fff; --fill:#f3f3f3; --fill-2:#e6e6e6; --ink:#000; --ink-2:rgba(0,0,0,.56); --ink-3:rgba(0,0,0,.34);
+  --line:rgba(0,0,0,.06); --shadow:0 12px 28px rgba(0,0,0,.035);
+  --hero:#000; --hero-ink:#fff; --hero-2:rgba(255,255,255,.55); --hero-fill:rgba(255,255,255,.1); --hero-track:rgba(255,255,255,.14);
+  --nav:rgba(255,255,255,.9); --active:#000; --active-ink:#fff;
+  --good:#0f8a3c; --good-bg:rgba(12,163,12,.1); --bad:#e5342a; --bad-bg:rgba(229,52,42,.09); --bad-mark:#ff3b30;
+  --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --c4:#eda100; --c5:#e87ba4; --c6:#008300; --c7:#4a3aa7; --c-other:#c9c9c9;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#000; --card:#1c1c1e; --fill:#2c2c2e; --fill-2:#3a3a3c; --ink:#fff; --ink-2:rgba(255,255,255,.62); --ink-3:rgba(255,255,255,.38);
+  --line:rgba(255,255,255,.08); --shadow:none;
+  --hero:#1c1c1e; --hero-ink:#fff; --hero-2:rgba(255,255,255,.55); --hero-fill:rgba(255,255,255,.07); --hero-track:rgba(255,255,255,.12);
+  --nav:rgba(36,36,38,.86); --active:#fff; --active-ink:#000;
+  --good:#30d158; --good-bg:rgba(48,209,88,.14); --bad:#ff6961; --bad-bg:rgba(255,69,58,.16); --bad-mark:#ff453a;
+  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#008300; --c7:#9085e9; --c-other:#5a5a5e;
+}
+html,body{background:var(--bg);color:var(--ink);font-family:'Inter',-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased;
+  -webkit-text-size-adjust:100%;overflow-x:hidden}
+body{padding-bottom:calc(7.5rem + env(safe-area-inset-bottom,0px))}
+#app{max-width:430px;margin:0 auto;padding:calc(1.25rem + env(safe-area-inset-top,0px)) 1rem 0}
+button,input{font:inherit;border:0;background:none;color:inherit;outline:none}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+input[type=search]::-webkit-search-cancel-button{display:none}
+svg{display:block;overflow:visible}
+
+/* шапка */
+.top{padding:.5rem .3rem 1.1rem}
+.top h1{font-size:1.9rem;font-weight:700;letter-spacing:-.05em;line-height:1}
+.top .sub{margin-top:7px;font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+
+/* базовые блоки */
+.card{background:var(--card);border-radius:1.75rem;padding:1.15rem 1.15rem 1.1rem;margin-bottom:.7rem;box-shadow:var(--shadow);border:1px solid var(--line)}
+.ch{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-bottom:.95rem}
+.ch h3{font-size:1.02rem;font-weight:700;letter-spacing:-.03em}
+.cap{font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.mute{color:var(--ink-3)}
+.chip{display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;font-weight:650;padding:.28rem .55rem;border-radius:99px;background:var(--fill);white-space:nowrap}
+.chip.good{background:var(--good-bg);color:var(--good)} .chip.bad{background:var(--bad-bg);color:var(--bad)}
+.note{font-size:.76rem;line-height:1.45;color:var(--ink-2)}
+
+/* герой с полукругом */
+.hero{background:var(--hero);color:var(--hero-ink);border:0;padding:1.2rem 1.2rem 1.15rem;box-shadow:0 18px 40px rgba(0,0,0,.16)}
+.hero .cap{color:var(--hero-2)}
+.gauge{position:relative;margin:.35rem auto 0;max-width:300px}
+.gauge .center{position:absolute;left:0;right:0;bottom:4px;text-align:center}
+.gauge .val{font-size:2.6rem;font-weight:700;letter-spacing:-.055em;line-height:1}
+.gauge .lbl{font-size:.78rem;color:var(--hero-2);margin-top:.35rem}
+.ends{display:flex;justify-content:space-between;align-items:flex-end;font-size:.64rem;color:var(--hero-2);margin:.55rem auto 0;max-width:300px}
+.ends b{display:block;color:var(--hero-ink);font-size:.8rem;font-weight:650;margin-top:2px}
+.ends .mid{font-size:.62rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+.hgrid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:1rem}
+.hgrid>div{background:var(--hero-fill);border-radius:1.1rem;padding:.72rem .85rem}
+.hgrid .k{font-size:.6rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--hero-2)}
+.hgrid .v{font-size:1.1rem;font-weight:700;letter-spacing:-.035em;margin-top:.28rem}
+
+/* прогресс «из» */
+.big{font-size:1.75rem;font-weight:700;letter-spacing:-.05em;line-height:1}
+.big small{font-size:.92rem;font-weight:600;color:var(--ink-3);letter-spacing:-.02em}
+.prog{height:8px;border-radius:99px;overflow:hidden;margin:.85rem 0 .75rem;display:flex;gap:2px}
+.prog i{display:block;height:100%;border-radius:99px}
+.chips{display:flex;gap:.4rem;overflow-x:auto;margin:0 -1.15rem;padding:0 1.15rem;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips .chip{padding:.45rem .7rem;font-size:.74rem;font-weight:600}
+.chips .chip b{font-weight:700}
+
+/* важное */
+.ins{display:flex;gap:.75rem;padding:.8rem 0;border-top:1px solid var(--line)}
+.ins:first-of-type{border-top:0;padding-top:0}
+.ins .ic{flex:none;width:30px;height:30px;border-radius:10px;display:grid;place-items:center;font-size:.8rem;font-weight:800}
+.ins.warn .ic{background:var(--bad-bg);color:var(--bad)} .ins.good .ic{background:var(--good-bg);color:var(--good)}
+.ins.info .ic{background:var(--fill);color:var(--ink)}
+.ins .t{font-size:.88rem;font-weight:650;letter-spacing:-.02em;line-height:1.28}
+.ins .d{font-size:.75rem;color:var(--ink-2);line-height:1.42;margin-top:.18rem}
+.more{font-size:.75rem;font-weight:650;color:var(--ink-3);padding-top:.6rem}
+
+/* списки */
+.li{display:flex;align-items:center;gap:.75rem;padding:.6rem 0}
+.li .ic{flex:none;width:38px;height:38px;border-radius:12px;background:var(--fill);display:grid;place-items:center;font-size:1.05rem;position:relative}
+.li .ic .dot{position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:50%;border:2px solid var(--card)}
+.li .ic.day{font-size:.82rem;font-weight:750}
+.li .m{flex:1;min-width:0}
+.li .a{font-size:.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
+.li .b{font-size:.7rem;color:var(--ink-3);margin-top:.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li .amt{font-weight:700;font-size:.9rem;letter-spacing:-.02em;white-space:nowrap}
+.li .amt.plus{color:var(--good)}
+.dayhead{display:flex;justify-content:space-between;font-size:.64rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);padding:.9rem 0 .15rem}
+.dayhead:first-child{padding-top:0}
+
+/* переключатели и периоды */
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:3px;margin-bottom:.9rem}
+.seg button{padding:.5rem;border-radius:99px;font-size:.8rem;font-weight:650;color:var(--ink-3);transition:background .2s,color .2s}
+.seg button.on{background:var(--active);color:var(--active-ink)}
+.pers{display:flex;align-items:center;justify-content:space-between;margin:0 .2rem .9rem}
+.pers .cur{font-size:1.35rem;font-weight:700;letter-spacing:-.045em;text-align:center;flex:1}
+.pers .cur small{display:block;font-size:.66rem;font-weight:600;letter-spacing:.02em;color:var(--ink-3);margin-top:3px}
+.pers button.side{font-size:.78rem;font-weight:600;color:var(--ink-3);padding:.4rem .1rem;min-width:88px}
+.pers button.side:first-child{text-align:left} .pers button.side:last-child{text-align:right}
+.pers button.side:disabled{visibility:hidden}
+
+/* донат */
+.donut{position:relative;width:236px;height:236px;margin:.2rem auto 1.1rem}
+.donut .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none}
+.donut .c .v{font-size:2.05rem;font-weight:700;letter-spacing:-.055em;line-height:1}
+.donut .c .l{font-size:.72rem;color:var(--ink-3);margin-top:.35rem;max-width:140px}
+.donut .c .chip{margin-top:.55rem}
+.donut circle{transition:opacity .2s,stroke-width .2s;cursor:pointer}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:.1rem .9rem}
+.legend button{display:flex;align-items:center;gap:.45rem;padding:.42rem .1rem;font-size:.78rem;text-align:left;transition:opacity .2s;min-width:0}
+.legend .sw{flex:none;width:9px;height:9px;border-radius:50%}
+.legend .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
+.legend .v{font-weight:700}
+.dim{opacity:.25}
+
+/* графики */
+.chart{position:relative}
+.axis text{font-size:9.5px;fill:var(--ink-3);font-weight:600}
+.grid line{stroke:var(--line)}
+.tip{position:absolute;top:-8px;pointer-events:none;background:var(--active);color:var(--active-ink);border-radius:.7rem;padding:.42rem .62rem;
+  font-size:.68rem;white-space:nowrap;transform:translate(-50%,-100%);opacity:0;transition:opacity .12s;z-index:5}
+.tip b{display:block;font-size:.84rem;font-weight:700}
+.tip.on{opacity:1}
+
+/* доли */
+.stack{display:flex;gap:2px;height:10px;margin:.15rem 0 .9rem}
+.stack i{display:block;height:100%;border-radius:3px;min-width:4px}
+.stack i:first-child{border-radius:99px 3px 3px 99px} .stack i:last-child{border-radius:3px 99px 99px 3px} .stack i:only-child{border-radius:99px}
+.rows{display:grid;gap:.55rem}
+.rows>div{display:flex;align-items:center;gap:.5rem;font-size:.8rem}
+.rows .sw{flex:none;width:9px;height:9px;border-radius:50%}
+.rows .n{color:var(--ink-2)} .rows .v{margin-left:auto;font-weight:700} .rows .p{color:var(--ink-3);font-size:.72rem;width:2.4rem;text-align:right}
+
+/* долги */
+.debt{padding:.95rem 0;border-top:1px solid var(--line)}
+.debt:first-of-type{border-top:0;padding-top:0}
+.debt .hd{display:flex;align-items:center;gap:.55rem}
+.debt .no{flex:none;width:24px;height:24px;border-radius:50%;background:var(--fill);display:grid;place-items:center;font-size:.72rem;font-weight:800}
+.debt .no.first{background:var(--active);color:var(--active-ink)}
+.debt .nm{font-weight:700;font-size:.92rem;letter-spacing:-.02em;flex:1}
+.debt .rt{font-size:.72rem;font-weight:700;padding:.22rem .5rem;border-radius:99px;background:var(--fill)}
+.debt .bal{font-size:1.45rem;font-weight:700;letter-spacing:-.045em;margin:.55rem 0 .15rem}
+.debt .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem;margin-top:.7rem}
+.debt .facts>div{background:var(--fill);border-radius:.9rem;padding:.55rem .6rem}
+.debt .facts .k{font-size:.56rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.debt .facts .v{font-size:.84rem;font-weight:700;margin-top:.22rem;letter-spacing:-.02em}
+.up{color:var(--bad)} .down{color:var(--good)}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.7rem}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:1.3rem;padding:.95rem .95rem .9rem;box-shadow:var(--shadow)}
+.tile .v{font-size:1.3rem;font-weight:700;letter-spacing:-.045em;margin-top:.45rem}
+.tile .s{font-size:.68rem;color:var(--ink-3);margin-top:.28rem;line-height:1.35}
+
+/* поиск */
+.search{display:flex;align-items:center;gap:.5rem;background:var(--fill);border-radius:99px;padding:.6rem .85rem;margin-bottom:.8rem}
+.search input{flex:1;min-width:0;font-size:16px}
+.search input::placeholder{color:var(--ink-3)}
+.filter{margin-bottom:.8rem}
+.empty{font-size:.8rem;color:var(--ink-3);padding:.6rem 0}
+
+/* расчёт «до зарплаты» */
+.calcbox{background:var(--fill);border-radius:1.1rem;padding:.7rem .85rem;margin-top:.9rem}
+.calc{display:flex;justify-content:space-between;gap:.75rem;font-size:.78rem;padding:.28rem 0;color:var(--ink-2)}
+.calc span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.calc b{font-weight:700;color:var(--ink);white-space:nowrap}
+.calc.total{border-top:1px solid var(--line);margin-top:.25rem;padding-top:.5rem;color:var(--ink);font-weight:650}
+.calc.hint{font-size:.7rem;color:var(--ink-3)} .calc.hint b{color:var(--ink-2);font-weight:650}
+
+/* выбор даты */
+.pers .cur{background:none;color:inherit;cursor:pointer}
+.pers .cal{font-size:.7rem;color:var(--ink-3);vertical-align:3px}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:80;opacity:0;transition:opacity .2s}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:81;max-width:430px;margin:0 auto;background:var(--card);border-radius:1.75rem 1.75rem 0 0;
+  padding:.6rem 1.1rem calc(1.4rem + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+.sheet.on{transform:none} .sheet-bg.on{opacity:1}
+.sheet .grab{width:38px;height:5px;border-radius:9px;background:var(--fill-2);margin:0 auto .8rem}
+.sheet .sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem}
+.sheet .sh b{font-size:1.1rem;font-weight:700;letter-spacing:-.035em}
+.sheet .sh button{width:36px;height:36px;border-radius:50%;background:var(--fill);font-size:1rem;font-weight:700}
+.sheet .sh button:disabled{opacity:.25}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-grid .wd{font-size:.6rem;font-weight:700;color:var(--ink-3);text-align:center;padding:.2rem 0 .35rem}
+.cal-grid button{aspect-ratio:1;border-radius:12px;font-size:.84rem;font-weight:650;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.cal-grid button small{font-size:.52rem;font-weight:700;opacity:.65}
+.cal-grid button:disabled{color:var(--ink-3);opacity:.45}
+.cal-grid button.out{visibility:hidden}
+.cal-grid button.today{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.cal-grid button.sel{background:var(--active)!important;color:var(--active-ink)!important}
+.months{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+.months button{border-radius:1rem;background:var(--fill);padding:.85rem .5rem;font-size:.84rem;font-weight:650}
+.months button small{display:block;font-size:.64rem;color:var(--ink-3);margin-top:.2rem;font-weight:600}
+.months button:disabled{opacity:.35}
+.months button.sel{background:var(--active);color:var(--active-ink)} .months button.sel small{color:inherit;opacity:.7}
+.sheet .hint{font-size:.7rem;color:var(--ink-3);text-align:center;margin-top:.8rem}
+
+/* нижнее меню */
+.nav{position:fixed;left:0;right:0;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;justify-content:center;z-index:50;pointer-events:none}
+.nav .bar{pointer-events:auto;display:flex;gap:2px;background:var(--nav);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-radius:999px;border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.12);padding:5px}
+.nav button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:.45rem 1.2rem .4rem;border-radius:999px;font-size:.62rem;font-weight:650;
+  color:var(--ink-3);transition:color .2s,background .2s}
+.nav button svg{width:20px;height:20px}
+.nav button.on{background:var(--fill);color:var(--ink)}
+
+/* появление */
+.screen>*{animation:rise .45s cubic-bezier(.2,.8,.2,1) both}
+.screen>*:nth-child(2){animation-delay:.035s}.screen>*:nth-child(3){animation-delay:.07s}.screen>*:nth-child(4){animation-delay:.105s}
+.screen>*:nth-child(n+5){animation-delay:.14s}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.noanim .screen>*{animation:none}
+@media (prefers-reduced-motion:reduce){.screen>*{animation:none}}
+.err{padding:3rem 1rem;text-align:center;color:var(--ink-2);font-size:.9rem}
+</style>
+</head>
+<body>
+<div id="app"><div class="err">Загружаю…</div></div>
+<div class="sheet-bg" id="sheetbg" hidden></div><div class="sheet" id="sheet" hidden></div>
+<nav class="nav"><div class="bar">
+  <button data-tab="home" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Главная</button>
+  <button data-tab="spend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>Траты</button>
+  <button data-tab="debts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19M6.5 15h4"/></svg>Долги</button>
+</div></nav>
+
+<script>
+/* ---------- окружение: Telegram, тема ---------- */
+const tg = window.Telegram?.WebApp;
+const params = new URLSearchParams(location.search);
+function applyTheme() {
+  const forced = params.get('theme');
+  const dark = forced ? forced === 'dark'
+    : tg?.initData ? tg.colorScheme === 'dark'
+    : matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  try { tg?.setHeaderColor(bg); tg?.setBackgroundColor(bg); tg?.setBottomBarColor?.(bg); } catch (e) {}
+}
+applyTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+if (tg) { tg.ready(); tg.expand(); tg.onEvent?.('themeChanged', applyTheme); }
+const haptic = () => tg?.HapticFeedback?.selectionChanged();
+
+/* ---------- формат ---------- */
+const MON = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const MON_N = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const MON_DAT = ['январю','февралю','марту','апрелю','маю','июню','июлю','августу','сентябрю','октябрю','ноябрю','декабрю'];
+const MON_S = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+const WD_L = ['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье'];
+const D = s => new Date(s + 'T00:00:00');
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const addDays = (s, n) => { const d = D(s); d.setDate(d.getDate() + n); return iso(d); };
+const diffDays = (a, b) => Math.round((D(b) - D(a)) / 864e5);
+const wdi = s => (D(s).getDay() + 6) % 7;
+const day = s => { const d = D(s); return `${d.getDate()} ${MON[d.getMonth()]}`; };
+const dayS = s => { const d = D(s); return `${d.getDate()} ${MON_S[d.getMonth()]}`; };
+const num = x => Math.abs(Math.round(x)).toLocaleString('ru-RU').replace(/\s/g, ' ');
+const rub = (x, sign) => { const v = Math.round(x); return (v < 0 ? '−' : sign && v > 0 ? '+' : '') + num(v) + ' ₽'; };
+const kk = x => x >= 1000 ? (Math.round(x / 100) / 10).toString().replace('.', ',') + 'к' : String(Math.round(x));
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+const plural = (n, a, b, c) => { n = Math.abs(n) % 100; const m = n % 10; return n > 10 && n < 20 ? c : m > 1 && m < 5 ? b : m === 1 ? a : c; };
+const days = n => `${n} ${plural(n, 'день', 'дня', 'дней')}`;
+const uid = () => 'x' + Math.random().toString(36).slice(2, 8);
+
+/* ---------- категории: иконка и цвет ---------- */
+const EMOJI = { 'Продукты': '🛒', 'Кафе и доставка': '🍜', 'Транспорт': '🚕', 'Жильё': '🏠', 'Связь': '📱', 'Рабочие инструменты': '🛠️',
+  'Подписки': '🔁', 'Кот': '🐈', 'Здоровье': '💊', 'Дом и одежда': '👕', 'Техника': '💻', 'Досуг': '🎮', 'Прочее': '📦',
+  'Проценты и комиссии': '💸', 'Перевод': '↔️', 'Корректировка': '⚖️', 'Зарплата': '💼', 'Фриланс': '🧑‍💻', 'Барабаны': '🥁',
+  'Процент': '🏦', 'Прочий доход': '💰', 'event-calendar': '📅' };
+const emoji = c => EMOJI[c] || '•';
+const SLOTS = 7, OTHER = 'Другое';
+// цвет закреплён за категорией по тратам за всё время — не прыгает при смене периода
+const group = c => { const i = DATA.cat_rank.indexOf(c); return i >= 0 && i < SLOTS ? c : OTHER; };
+const catColor = c => { const i = DATA.cat_rank.indexOf(c); return i >= 0 && i < SLOTS ? `var(--c${i + 1})` : 'var(--c-other)'; };
+
+/* ---------- состояние ---------- */
+let DATA, OPS;
+const S = { tab: ['home', 'spend', 'debts'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home',
+  mode: 'month', anchor: null, cat: null, q: '', allIns: false };
+
+/* ---------- периоды ---------- */
+function range(mode, anchor) {
+  if (mode === 'day') return { start: anchor, end: anchor };
+  if (mode === 'week') { const s = addDays(anchor, -wdi(anchor)); return { start: s, end: addDays(s, 6) }; }
+  const d = D(anchor);
+  return { start: iso(new Date(d.getFullYear(), d.getMonth(), 1)), end: iso(new Date(d.getFullYear(), d.getMonth() + 1, 0)) };
+}
+function shift(mode, anchor, n) {
+  if (mode === 'day') return addDays(anchor, n);
+  if (mode === 'week') return addDays(anchor, 7 * n);
+  const d = D(anchor); return iso(new Date(d.getFullYear(), d.getMonth() + n, 1));
+}
+function rangeLabel(mode, r) {
+  if (mode === 'day') { const n = diffDays(r.start, DATA.today);
+    return n === 0 ? 'Сегодня' : n === 1 ? 'Вчера' : n === -1 ? 'Завтра' : dayS(r.start); }
+  if (mode === 'month') return MON_N[D(r.start).getMonth()];
+  if (r.start <= DATA.today && DATA.today <= r.end) return 'Эта неделя';
+  const prev = addDays(DATA.today, -7);
+  if (r.start <= prev && prev <= r.end) return 'Прошлая';
+  return `${D(r.start).getDate()}–${dayS(r.end)}`;
+}
+const inRange = (o, r) => o.date >= r.start && o.date <= r.end;
+const spendOps = r => OPS.filter(o => o.kind === 'расход' && inRange(o, r));
+const sum = (arr, f = o => -o.amount) => arr.reduce((s, o) => s + f(o), 0);
+// обычный день: средние траты за 30 учтённых дней до даты (саму дату не берём)
+function avgDay(before) {
+  const from = addDays(before, -30) > DATA.tracking_start ? addDays(before, -30) : DATA.tracking_start;
+  const n = diffDays(from, before); if (n <= 0) return 0;
+  return sum(spendOps({ start: from, end: addDays(before, -1) })) / n;
+}
+
+/* ---------- графики ---------- */
+
+// сегментный донат: зазоры между дугами, скруглённые концы
+function donut(items, total, active) {
+  const R = 94, sw = 24, C = 2 * Math.PI * R, gap = 7, many = items.length > 1;
+  // мелкие доли не схлопываются в точку: минимум — точка с зазором, излишек забираем у крупных
+  const minL = sw + gap + 3, raw = items.map(it => it.v / total * C);
+  const deficit = raw.reduce((s, L) => s + Math.max(0, minL - L), 0), bigSum = raw.filter(L => L > minL).reduce((s, L) => s + L, 0);
+  const lens = raw.map(L => L <= minL ? minL : L - deficit * L / bigSum);
+  let acc = 0, segs = '';
+  items.forEach((it, i) => {
+    const L = many ? lens[i] : C, draw = many ? Math.max(L - sw - gap, 0.01) : C, off = many ? acc + (sw + gap) / 2 : 0;
+    segs += `<circle class="${active && active !== it.k ? 'dim' : ''}" data-cat="${esc(it.k)}" cx="118" cy="118" r="${R}" fill="none"
+      stroke="${it.color}" stroke-width="${active === it.k ? sw + 5 : sw}" stroke-linecap="${many ? 'round' : 'butt'}"
+      stroke-dasharray="${draw} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 118 118)"/>`;
+    acc += L;
+  });
+  if (!items.length) segs = `<circle cx="118" cy="118" r="${R}" fill="none" stroke="var(--fill)" stroke-width="${sw}"/>`;
+  return `<svg viewBox="0 0 236 236" width="236" height="236">${segs}</svg>`;
+}
+
+// линия по дням с перекрестием
+function lineChart(points, { avg, tip }) {
+  const W = 340, H = 130, padT = 8, n = points.length;
+  const idx = points.map((p, i) => [p, i]).filter(([p]) => p.v != null);
+  const raw = Math.max(1, ...idx.map(([p]) => p.v), avg || 0);
+  const step = [100, 200, 500, 1000, 2000, 2500, 5000, 10000, 20000, 25000, 50000].find(s => raw / s <= 4) || 100000;
+  const max = Math.ceil(raw / step) * step;
+  const X = i => n === 1 ? W / 2 : i / (n - 1) * W, Y = v => padT + (H - padT) * (1 - v / max);
+  const id = uid();
+  let grid = '';
+  for (let v = 0; v <= max; v += step) grid += `<line x1="0" x2="${W}" y1="${Y(v)}" y2="${Y(v)}"/>${v ? `<text x="0" y="${Y(v) - 4}">${kk(v)}</text>` : ''}`;
+  const line = idx.map(([p, i], j) => `${j ? 'L' : 'M'}${X(i).toFixed(1)},${Y(p.v).toFixed(1)}`).join(' ');
+  const area = idx.length > 1 ? `${line} L${X(idx[idx.length - 1][1])},${H} L${X(idx[0][1])},${H} Z` : '';
+  const every = n > 20 ? 7 : 1;
+  const labels = points.map((p, i) => i % every === 0 || i === n - 1
+    ? `<text x="${X(i)}" y="${H + 15}" text-anchor="${i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}">${p.label}</text>` : '').join('');
+  const last = idx[idx.length - 1];
+  setTimeout(() => {
+    const el = document.getElementById(id); if (!el || !idx.length) return;
+    const t = el.querySelector('.tip'), cross = el.querySelector('.cross'), dot = el.querySelector('.cdot');
+    const move = e => {
+      const r = el.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * W;
+      const [p, i] = idx.reduce((a, q) => Math.abs(X(q[1]) - x) < Math.abs(X(a[1]) - x) ? q : a, idx[0]);
+      t.innerHTML = tip(p); t.classList.add('on');
+      t.style.left = Math.min(Math.max(X(i) / W * r.width, 64), r.width - 64) + 'px';
+      cross.setAttribute('x1', X(i)); cross.setAttribute('x2', X(i)); cross.style.opacity = 1;
+      dot.setAttribute('cx', X(i)); dot.setAttribute('cy', Y(p.v)); dot.style.opacity = 1;
+    };
+    const out = () => { t.classList.remove('on'); cross.style.opacity = 0; dot.style.opacity = 0; };
+    el.addEventListener('pointermove', move); el.addEventListener('pointerdown', move); el.addEventListener('pointerleave', out);
+  }, 0);
+  return `<div class="chart" id="${id}"><svg viewBox="0 0 ${W} ${H + 20}" width="100%" style="touch-action:pan-y">
+    <g class="grid axis">${grid}</g>
+    ${avg ? `<line x1="0" x2="${W}" y1="${Y(avg)}" y2="${Y(avg)}" stroke="var(--ink-3)" stroke-width="1" stroke-dasharray="2 4"/>` : ''}
+    <path d="${area}" fill="var(--ink)" opacity=".06"/>
+    <path d="${line}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${last ? `<circle cx="${X(last[1])}" cy="${Y(last[0].v)}" r="4.5" fill="var(--ink)" stroke="var(--card)" stroke-width="2"/>` : ''}
+    <line class="cross" y1="0" y2="${H}" stroke="var(--ink-3)" stroke-width="1" style="opacity:0"/>
+    <circle class="cdot" r="5" fill="var(--card)" stroke="var(--ink)" stroke-width="2" style="opacity:0"/>
+    <g class="axis">${labels}</g>
+  </svg><div class="tip"></div></div>`;
+}
+
+/* ---------- Главная ---------- */
+
+function todayCard(d) {
+  const t = d.today, ops = OPS.filter(o => o.date === t && o.kind !== 'служебная' && o.kind !== 'проценты').reverse();
+  const sp = ops.filter(o => o.kind === 'расход'), spent = sum(sp), inc = sum(ops.filter(o => o.kind === 'доход'), o => o.amount);
+  const avg = avgDay(t);
+  const cmp = spent && avg ? `<span class="chip ${spent > avg ? 'bad' : 'good'}">${spent > avg ? '↑' : '↓'} ${Math.abs(Math.round((spent - avg) / avg * 100))}% к обычному дню</span>` : '';
+  const by = {};
+  sp.forEach(o => by[o.cat] = (by[o.cat] || 0) - o.amount);
+  const cats = Object.entries(by).sort((a, b) => b[1] - a[1]);
+  return `<div class="card">
+    <div class="ch"><h3>Сегодня</h3>${cmp}</div>
+    <div class="big" style="font-size:2.4rem">${rub(spent)}${inc ? ` <small style="color:var(--good)">${rub(inc, true)}</small>` : ''}</div>
+    <div class="note" style="margin-top:.4rem">${spent ? `${sp.length} ${plural(sp.length, 'трата', 'траты', 'трат')} · обычно в день ${rub(avg)}` : `Трат пока нет · обычно в день ${rub(avg)}`}</div>
+    ${cats.length ? `<div class="stack" style="margin:1rem 0 .9rem">${cats.map(([c, v]) => `<i style="flex:${v};background:${catColor(c)}"></i>`).join('')}</div>
+      <div class="rows">${cats.map(([c, v]) => `<div><span class="sw" style="background:${catColor(c)}"></span><span class="n">${emoji(c)} ${esc(c)}</span><span class="v">${rub(v)}</span><span class="p">${pct(v, spent)}%</span></div>`).join('')}</div>` : ''}
+    ${ops.length ? `<div style="border-top:1px solid var(--line);margin-top:1rem;padding-top:.5rem">${ops.map(opRow).join('')}</div>` : ''}
+    <button class="more" data-go="day">Траты по дням →</button>
+  </div>`;
+}
+
+function freeCard(d) {
+  const f = d.free; if (!f) return '';
+  const short = f.free < 0, over = f.left_today < 0;
+  const used = f.per_day ? Math.min(f.spent_today / f.per_day, 1) : 1;
+  const line = (l, v, cls = '') => `<div class="calc ${cls}"><span>${l}</span><b>${v}</b></div>`;
+  return `<div class="card">
+    <div class="ch"><h3>До зарплаты</h3><span class="cap">${dayS(f.until)} · ${days(f.days_left)}</span></div>
+    ${short ? `<div class="big up">${rub(f.free)}</div><div class="note" style="margin-top:.4rem">Не хватает до зарплаты: не покрыт платёж ${day(f.uncovered.date)} — ${esc(f.uncovered.name)}. Тратить только необходимое.</div>`
+      : `<div class="big">${rub(f.per_day)} <small>в день</small></div>
+    <div class="prog"><i style="flex:${used};background:${over ? 'var(--bad-mark)' : 'var(--ink)'}"></i>${used < 1 ? `<i style="flex:${1 - used};background:var(--fill-2)"></i>` : ''}</div>
+    <div class="note">${over ? `Сегодня сверх лимита на <b class="up">${rub(-f.left_today)}</b> — завтра лимит станет меньше.`
+      : `Сегодня потрачено ${rub(f.spent_today)}, можно ещё <b style="color:var(--ink)">${rub(f.left_today)}</b>.`}</div>`}
+    <div class="calcbox">
+      ${line('На счетах', rub(f.cash))}
+      ${f.payments.map(p => line(`− ${esc(p.name)} · ${dayS(p.date)}`, rub(p.amount), 'minus')).join('')}
+      ${f.extra_debt ? line('− доп. погашение долгов', rub(f.extra_debt), 'minus') : ''}
+      ${line('= Свободно', rub(f.free), 'total')}
+      ${short ? '' : `<div class="calc hint"><span>${rub(f.free + f.spent_today)} на утро ÷ ${days(f.days_left)}</span><b>${rub(f.per_day)} в день</b></div>`}
+    </div>
+  </div>`;
+}
+
+function accountsCard(d, extra = '') {
+  const a = d.accounts;
+  return `<div class="card"><div class="ch"><h3>Деньги на счетах</h3><span class="cap">${rub(a.cash_total)}</span></div>
+    ${a.cash.map(x => `<div class="li"><div class="ic">${/нал/i.test(x.name) ? '💵' : '💳'}</div><div class="m"><div class="a">${esc(x.name)}</div></div><div class="amt">${rub(x.balance)}</div></div>`).join('')}${extra}
+  </div>`;
+}
+
+function insightsCard(d) {
+  const list = d.insights, shown = S.allIns ? list : list.slice(0, 3), ic = { warn: '!', good: '✓', info: 'i' };
+  if (!list.length) return '';
+  return `<div class="card"><div class="ch"><h3>Важное</h3><span class="cap">${list.length}</span></div>
+    ${shown.map(i => `<div class="ins ${i.level}"><div class="ic">${ic[i.level]}</div><div><div class="t">${esc(i.title)}</div>${i.text ? `<div class="d">${esc(i.text)}</div>` : ''}</div></div>`).join('')}
+    ${list.length > 3 && !S.allIns ? `<button class="more" data-act="ins">Ещё ${list.length - 3} →</button>` : ''}</div>`;
+}
+
+function upcomingCard(d) {
+  if (!d.upcoming.length) return '';
+  return `<div class="card"><div class="ch"><h3>Платежи</h3><span class="cap">15 дней</span></div>
+    ${d.upcoming.map(p => { const n = diffDays(d.today, p.date);
+      return `<div class="li"><div class="ic day">${D(p.date).getDate()}</div><div class="m"><div class="a">${esc(p.name)}</div>
+        <div class="b">${n === 0 ? 'сегодня' : n === 1 ? 'завтра' : 'через ' + days(n)} · ${day(p.date)}</div></div><div class="amt">${rub(p.amount)}</div></div>`; }).join('')}</div>`;
+}
+
+/* ---------- Траты ---------- */
+
+function cutOf(r) { return { start: r.start, end: r.end < DATA.today ? r.end : DATA.today }; }
+
+function spendScreen(d) {
+  const r = range(S.mode, S.anchor), cut = cutOf(r);
+  const prevR = range(S.mode, shift(S.mode, S.anchor, -1)), nextR = range(S.mode, shift(S.mode, S.anchor, 1));
+  const hasPrev = prevR.end >= d.tracking_start, hasNext = nextR.start <= d.today;
+  const ops = spendOps(cut), total = sum(ops);
+
+  // сравнение: столько же дней от начала прошлого периода — только если он учтён целиком
+  const pr = { start: prevR.start, end: addDays(prevR.start, diffDays(cut.start, cut.end)) };
+  const cmp = S.mode === 'day' ? avgDay(r.start) : prevR.start >= d.tracking_start ? sum(spendOps(pr)) : null;
+  const cmpTo = S.mode === 'day' ? 'обычному дню' : S.mode === 'week' ? 'прошлой' : MON_DAT[D(prevR.start).getMonth()];
+
+  const by = {};
+  ops.forEach(o => { const k = group(o.cat); by[k] = (by[k] || 0) - o.amount; });
+  const items = Object.entries(by).filter(([, v]) => v > 0.5).map(([k, v]) => ({ k, v, color: k === OTHER ? 'var(--c-other)' : catColor(k) }))
+    .sort((a, b) => (a.k === OTHER) - (b.k === OTHER) || b.v - a.v);
+  const act = S.cat && items.some(i => i.k === S.cat) ? S.cat : null;
+
+  const center = act
+    ? `<div class="v">${rub(by[act])}</div><div class="l">${esc(act)} · ${pct(by[act], total)}%</div>`
+    : `<div class="v">${rub(total)}</div><div class="l">потрачено${S.mode !== 'day' && cut.end < r.end ? ` по ${dayS(cut.end)}` : ''}</div>
+       ${cmp ? `<span class="chip ${total > cmp ? 'bad' : 'good'}">${total > cmp ? '↑' : '↓'} ${Math.abs(Math.round((total - cmp) / cmp * 100))}% к ${cmpTo}</span>` : ''}`;
+
+  const head = `<div class="seg">${[['day', 'День'], ['week', 'Неделя'], ['month', 'Месяц']].map(([m, l]) => `<button data-mode="${m}" class="${S.mode === m ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <div class="pers"><button class="side" data-shift="-1" ${hasPrev ? '' : 'disabled'}>‹ ${rangeLabel(S.mode, prevR)}</button>
+      <button class="cur" data-act="pick">${rangeLabel(S.mode, r)} <span class="cal">▾</span><small>${S.mode === 'day' ? `${WD_L[wdi(r.start)]}, ${day(r.start)}` : `${dayS(r.start)} – ${dayS(r.end)}`}</small></button>
+      <button class="side" data-shift="1" ${hasNext ? '' : 'disabled'}>${rangeLabel(S.mode, nextR)} ›</button></div>`;
+
+  const donutCard = `<div class="card">
+    <div class="donut">${donut(items, total || 1, act)}<div class="c">${center}</div></div>
+    ${items.length ? `<div class="legend">${items.map(i => `<button data-cat="${esc(i.k)}" class="${act && act !== i.k ? 'dim' : ''}">
+      <span class="sw" style="background:${i.color}"></span><span class="n">${esc(i.k)}</span><span class="v">${kk(i.v)}</span></button>`).join('')}</div>`
+      : `<div class="empty" style="text-align:center">${S.mode === 'day' ? 'В этот день трат нет' : 'За этот период трат нет'}</div>`}
+    ${items.length ? `<div class="note" style="margin-top:.7rem;text-align:center">Нажми на категорию — покажу ${S.mode === 'day' ? 'её записи' : 'её дни и записи'}</div>` : ''}
+  </div>`;
+
+  const sel = act ? ops.filter(o => group(o.cat) === act) : ops;
+  const n = diffDays(r.start, r.end) + 1;
+  const pts = Array.from({ length: n }, (_, i) => { const dt = addDays(r.start, i);
+    return { k: dt, v: dt > d.today || dt < d.tracking_start ? null : sum(sel.filter(o => o.date === dt)), label: S.mode === 'week' ? WD[i] : D(dt).getDate() }; });
+  const counted = pts.filter(p => p.v != null), avg = counted.length ? sum(counted, p => p.v) / counted.length : 0;
+  const zero = counted.filter(p => p.v === 0).length;
+  const peak = counted.reduce((a, p) => !a || p.v > a.v ? p : a, null);
+  const daysCard = `<div class="card"><div class="ch"><h3>По дням${act ? ` · ${esc(act)}` : ''}</h3><span class="cap">ср. ${rub(avg)}</span></div>
+    ${counted.length ? lineChart(pts, { avg, tip: p => `${WD_L[wdi(p.k)]}, ${day(p.k)}<b>${rub(p.v)}</b>` }) : '<div class="empty">Нет данных</div>'}
+    ${peak && peak.v ? `<div class="note" style="margin-top:.7rem">Пик — ${day(peak.k)}, ${rub(peak.v)}${zero && !act ? ` · без трат: ${days(zero)}` : ''}</div>` : ''}</div>`;
+
+  const debtNames = new Set(d.accounts.debts.map(x => x.name)), accBy = {};
+  sel.forEach(o => accBy[o.account] = (accBy[o.account] || 0) - o.amount);
+  const accs = Object.entries(accBy).map(([k, v]) => ({ k, v, credit: debtNames.has(k) })).sort((a, b) => a.credit - b.credit || b.v - a.v);
+  const shade = ['var(--ink)', 'var(--ink-2)', 'var(--ink-3)'], red = ['var(--bad-mark)', 'color-mix(in srgb,var(--bad-mark) 50%,var(--card))'];
+  let si = 0, ri = 0; accs.forEach(a => a.color = a.credit ? red[ri++ % 2] : shade[si++ % 3]);
+  const credit = sum(accs.filter(a => a.credit), a => a.v), selTotal = sum(sel);
+  const accCard = accs.length ? `<div class="card"><div class="ch"><h3>С каких счетов</h3>${credit
+      ? `<span class="chip bad">в долг ${pct(credit, selTotal)}%</span>` : '<span class="chip good">✓ без кредиток</span>'}</div>
+    <div class="stack">${accs.map(a => `<i style="flex:${a.v};background:${a.color}"></i>`).join('')}</div>
+    <div class="rows">${accs.map(a => `<div><span class="sw" style="background:${a.color}"></span><span class="n">${esc(a.k)}</span><span class="v">${rub(a.v)}</span><span class="p">${pct(a.v, selTotal)}%</span></div>`).join('')}</div></div>` : '';
+
+  const inc = OPS.filter(o => o.kind === 'доход' && inRange(o, cut));
+  const incCard = inc.length && !act ? `<div class="card"><div class="ch"><h3>Поступления</h3><span class="cap" style="color:var(--good)">${rub(sum(inc, o => o.amount), true)}</span></div>
+    ${inc.map(o => `<div class="li"><div class="ic">${emoji(o.cat)}</div><div class="m"><div class="a">${esc(o.comment || o.cat)}</div><div class="b">${dayS(o.date)} · ${esc(o.cat)} · ${esc(o.account)}</div></div><div class="amt plus">${rub(o.amount, true)}</div></div>`).join('')}</div>` : '';
+
+  return [head, donutCard, S.mode === 'day' ? '' : daysCard, accCard, incCard, opsCard(d, cut, act)];
+}
+
+function opRow(o) {
+  const tr = o.kind === 'служебная', inc = o.kind === 'доход';
+  return `<div class="li"><div class="ic">${emoji(o.cat)}${o.kind === 'расход' ? `<span class="dot" style="background:${catColor(o.cat)}"></span>` : ''}</div>
+    <div class="m"><div class="a">${esc(tr ? `${o.account} → ${o.dest}` : o.comment || o.cat)}</div><div class="b">${esc(o.cat)}${tr ? '' : ' · ' + esc(o.account)}</div></div>
+    <div class="amt ${inc ? 'plus' : ''}">${tr ? rub(-o.amount) : rub(o.amount, true)}</div></div>`;
+}
+
+function opsList(d, r, act) {
+  const q = S.q.trim().toLowerCase();
+  let list = OPS.filter(o => inRange(o, r) && (o.kind !== 'служебная' || o.dest));
+  if (act) list = list.filter(o => o.kind === 'расход' && group(o.cat) === act);
+  if (q) list = list.filter(o => [o.comment, o.cat, o.account, o.dest].some(x => String(x).toLowerCase().includes(q)) || String(Math.abs(Math.round(o.amount))).includes(q));
+  const groups = [];
+  list.slice().reverse().forEach(o => { const g = groups[groups.length - 1]; if (g && g.date === o.date) g.ops.push(o); else groups.push({ date: o.date, ops: [o] }); });
+  const dayName = s => s === d.today ? 'Сегодня' : s === addDays(d.today, -1) ? 'Вчера' : `${day(s)}, ${WD[wdi(s)].toLowerCase()}`;
+  return { n: list.length, html: groups.length ? groups.map(g => { const sp = sum(g.ops.filter(o => o.kind === 'расход'));
+    return `<div class="dayhead"><span>${dayName(g.date)}</span><span>${sp ? rub(sp) : ''}</span></div>
+    ${g.ops.map(opRow).join('')}`; }).join('')
+    : '<div class="empty">Ничего не нашлось</div>' };
+}
+
+function opsCard(d, r, act) {
+  const l = opsList(d, r, act);
+  return `<div class="card"><div class="ch"><h3>Записи</h3><span class="cap" id="opsn">${l.n}</span></div>
+    <label class="search"><span class="mute">⌕</span><input id="q" type="search" placeholder="Поиск: кафе, такси, 450…" value="${esc(S.q)}" autocomplete="off"></label>
+    ${act ? `<div class="filter"><button class="chip" data-cat="${esc(act)}">${esc(act)} ✕</button></div>` : ''}
+    <div id="opslist">${l.html}</div></div>`;
+}
+
+/* ---------- Долги ---------- */
+
+function debtsScreen(d) {
+  const a = d.accounts, debts = a.debts.filter(x => x.balance > 0), grew = a.debt_total - a.debt_start;
+  const byBal = debts.slice().sort((x, y) => y.balance - x.balance);
+  byBal.forEach((x, i) => x.color = `var(--c${i % 3 + 1})`);
+  const avgDay = d.month.avg_day, net = a.net - a.net_start;
+  return [
+    `<div class="card hero">
+      <div class="ch" style="margin-bottom:.55rem"><span class="cap">Долг всего</span>
+        <span class="chip" style="background:${grew > 0 ? 'rgba(255,69,58,.22)' : 'rgba(48,209,88,.22)'};color:${grew > 0 ? '#ff8a82' : '#6ee38f'}">${grew > 0 ? '↑' : '↓'} ${rub(Math.abs(grew))} с ${dayS(d.tracking_start)}</span></div>
+      <div style="font-size:2.6rem;font-weight:700;letter-spacing:-.055em;line-height:1">${rub(a.debt_total)}</div>
+      <div class="stack" style="margin:1.15rem 0 .95rem;height:12px">${byBal.map(x => `<i style="flex:${x.balance};background:${x.color}"></i>`).join('')}</div>
+      <div class="rows">${byBal.map(x => `<div><span class="sw" style="background:${x.color}"></span><span class="n" style="color:var(--hero-2)">${esc(x.name)}</span><span class="v">${rub(x.balance)}</span><span class="p" style="color:var(--hero-2)">${pct(x.balance, a.debt_total)}%</span></div>`).join('')}</div>
+    </div>`,
+    `<div class="tiles">
+      <div class="tile"><div class="cap">Проценты / мес</div><div class="v">≈ ${rub(a.interest_month)}</div><div class="s">${avgDay ? `как ${days(Math.round(a.interest_month / avgDay))} твоих трат` : ''}</div></div>
+      <div class="tile"><div class="cap">Уплачено процентов</div><div class="v">${rub(a.paid_interest)}</div><div class="s">с ${day(d.tracking_start)}</div></div>
+    </div>`,
+    `<div class="card"><div class="ch"><h3>Порядок погашения</h3><span class="cap">по ставке</span></div>
+      ${debts.map((x, i) => { const ch = x.balance - x.start;
+        return `<div class="debt"><div class="hd"><span class="no ${i === 0 ? 'first' : ''}">${i + 1}</span><span class="nm">${esc(x.name)}</span><span class="rt">${(x.rate * 100).toFixed(1).replace('.', ',')}%</span></div>
+          <div class="bal">${rub(x.balance)}</div>
+          <div style="font-size:.72rem;font-weight:600" class="${ch > 0 ? 'up' : ch < 0 ? 'down' : 'mute'}">${ch > 0 ? `↑ ${rub(ch)}` : ch < 0 ? `↓ ${rub(-ch)}` : 'без изменений'} с начала учёта</div>
+          ${i === 0 ? `<div class="note" style="margin-top:.45rem">Всё сверх минимальных платежей — сюда: самая дорогая ставка.</div>` : ''}
+          <div class="facts"><div><div class="k">Проценты</div><div class="v">${rub(x.interest)}</div></div>
+          <div><div class="k">Платёж</div><div class="v" ${x.payment ? '' : 'style="color:var(--bad)"'}>${x.payment ? rub(x.payment) : 'не указан'}</div></div>
+          <div><div class="k">До нуля</div><div class="v">${x.months ? `${x.months} мес.` : '—'}</div></div></div></div>`; }).join('')}
+    </div>`,
+    accountsCard(d, `
+      <div class="li" style="border-top:1px solid var(--line);margin-top:.35rem;padding-top:.85rem"><div class="ic">📊</div><div class="m"><div class="a">Чистый капитал</div>
+        <div class="b ${net < 0 ? 'up' : 'down'}">${net < 0 ? '↓' : '↑'} ${rub(Math.abs(net))} с ${dayS(d.tracking_start)}</div></div><div class="amt">${rub(a.net)}</div></div>`),
+  ];
+}
+
+/* ---------- выбор даты ---------- */
+
+let DAY_TOTALS = {};
+function openPick() {
+  const d = D(S.anchor);
+  S.view = S.mode === 'month' ? String(d.getFullYear()) : iso(new Date(d.getFullYear(), d.getMonth(), 1));
+  const sh = document.getElementById('sheet'), bg = document.getElementById('sheetbg');
+  sh.hidden = bg.hidden = false; renderSheet();
+  requestAnimationFrame(() => { sh.classList.add('on'); bg.classList.add('on'); });
+}
+function closePick() {
+  const sh = document.getElementById('sheet'), bg = document.getElementById('sheetbg');
+  sh.classList.remove('on'); bg.classList.remove('on');
+  setTimeout(() => { sh.hidden = bg.hidden = true; }, 280);
+}
+function renderSheet() {
+  const sh = document.getElementById('sheet'), t0 = DATA.tracking_start, today = DATA.today;
+  if (S.mode === 'month') {
+    const y = +S.view, minY = D(t0).getFullYear(), maxY = D(today).getFullYear(), sel = S.anchor.slice(0, 7);
+    sh.innerHTML = `<div class="grab"></div><div class="sh"><button data-view="-1" ${y <= minY ? 'disabled' : ''}>‹</button><b>${y}</b><button data-view="1" ${y >= maxY ? 'disabled' : ''}>›</button></div>
+      <div class="months">${MON_N.map((m, i) => { const k = `${y}-${String(i + 1).padStart(2, '0')}`, r = range('month', k + '-01');
+        const ok = r.end >= t0 && r.start <= today, v = ok ? sum(spendOps(cutOf(r))) : 0;
+        return `<button data-pick="${k}-01" class="${k === sel ? 'sel' : ''}" ${ok ? '' : 'disabled'}>${m}<small>${ok ? rub(v) : '—'}</small></button>`; }).join('')}</div>`;
+    return;
+  }
+  const m0 = S.view, md = D(m0), last = iso(new Date(md.getFullYear(), md.getMonth() + 1, 0));
+  const start = addDays(m0, -wdi(m0)), cells = diffDays(start, addDays(last, 6 - wdi(last))) + 1;
+  const vals = Object.values(DAY_TOTALS).filter(v => v > 0).sort((a, b) => a - b);
+  const q = p => vals[Math.floor((vals.length - 1) * p)] || 0, th = [q(.33), q(.66)];
+  const lvl = v => !v ? 0 : v <= th[0] ? 1 : v <= th[1] ? 2 : 3;
+  const tint = ['transparent', 'color-mix(in srgb,var(--ink) 7%,transparent)', 'color-mix(in srgb,var(--ink) 15%,transparent)', 'color-mix(in srgb,var(--ink) 26%,transparent)'];
+  const selR = range(S.mode, S.anchor);
+  const prevOk = m0 > t0.slice(0, 7) + '-01', nextOk = addDays(last, 1) <= today;
+  sh.innerHTML = `<div class="grab"></div><div class="sh"><button data-view="-1" ${prevOk ? '' : 'disabled'}>‹</button><b>${MON_N[md.getMonth()]} ${md.getFullYear()}</b><button data-view="1" ${nextOk ? '' : 'disabled'}>›</button></div>
+    <div class="cal-grid">${WD.map(w => `<div class="wd">${w}</div>`).join('')}
+    ${Array.from({ length: cells }, (_, i) => { const dt = addDays(start, i), out = dt < m0 || dt > last, ok = dt >= t0 && dt <= today, v = DAY_TOTALS[dt] || 0;
+      const sel = dt >= selR.start && dt <= selR.end;
+      return `<button data-pick="${dt}" class="${out ? 'out' : ''} ${dt === today ? 'today' : ''} ${sel ? 'sel' : ''}" ${ok && !out ? '' : 'disabled'}
+        style="background:${ok ? tint[lvl(v)] : 'transparent'}">${D(dt).getDate()}${ok && v ? `<small>${kk(v)}</small>` : ''}</button>`; }).join('')}</div>
+    <div class="hint">${S.mode === 'week' ? 'Выбери любой день — откроется его неделя' : 'Темнее — больше потрачено'}</div>`;
+}
+document.getElementById('sheetbg').addEventListener('click', closePick);
+document.getElementById('sheet').addEventListener('click', e => {
+  const t = e.target.closest('[data-view],[data-pick]'); if (!t || t.disabled) return;
+  if (t.dataset.view) {
+    const n = +t.dataset.view;
+    S.view = S.mode === 'month' ? String(+S.view + n) : iso(new Date(D(S.view).getFullYear(), D(S.view).getMonth() + n, 1));
+    renderSheet(); haptic(); return;
+  }
+  S.anchor = t.dataset.pick; S.cat = null; haptic(); closePick(); render(false);
+});
+
+/* ---------- рендер ---------- */
+
+const TITLES = { home: 'Финансы', spend: 'Траты', debts: 'Долги' };
+function render(anim = true) {
+  const d = DATA;
+  const blocks = S.tab === 'home' ? [todayCard(d), freeCard(d), accountsCard(d), upcomingCard(d), insightsCard(d)]
+    : S.tab === 'spend' ? spendScreen(d) : debtsScreen(d);
+  const app = document.getElementById('app');
+  app.classList.toggle('noanim', !anim);
+  app.innerHTML = `<div class="top"><h1>${TITLES[S.tab]}</h1><div class="sub">${WD_L[wdi(d.today)]}, ${day(d.today)}</div></div>
+    <div class="screen">${blocks.join('')}</div>`;
+  document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === S.tab));
+}
+
+document.querySelector('.nav').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || b.dataset.tab === S.tab) return;
+  S.tab = b.dataset.tab; history.replaceState(null, '', location.search + '#' + S.tab); render(); scrollTo({ top: 0 }); haptic();
+});
+document.getElementById('app').addEventListener('click', e => {
+  const go = e.target.closest('[data-go]');
+  if (go) { S.tab = 'spend'; S.mode = go.dataset.go; S.anchor = DATA.today; S.cat = null; history.replaceState(null, '', location.search + '#spend');
+    render(); scrollTo({ top: 0 }); haptic(); return; }
+  const t = e.target.closest('[data-act],[data-mode],[data-shift],[data-cat]'); if (!t) return;
+  if (t.dataset.act === 'pick') { openPick(); haptic(); return; }
+  if (t.dataset.act === 'ins') S.allIns = true;
+  else if (t.dataset.mode) { S.mode = t.dataset.mode; S.anchor = DATA.today; S.cat = null; }
+  else if (t.dataset.shift) { S.anchor = shift(S.mode, S.anchor, +t.dataset.shift); S.cat = null; }
+  else if (t.dataset.cat) S.cat = S.cat === t.dataset.cat ? null : t.dataset.cat;
+  haptic(); render(false);
+});
+document.getElementById('app').addEventListener('input', e => {  // поиск — без перерисовки экрана, чтобы не терять фокус
+  if (e.target.id !== 'q') return;
+  S.q = e.target.value;
+  const l = opsList(DATA, cutOf(range(S.mode, S.anchor)), S.cat);
+  document.getElementById('opslist').innerHTML = l.html; document.getElementById('opsn').textContent = l.n;
+});
+
+fetch(window.DATA_URL || 'data.json', { cache: 'no-store' })
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(d => {
+    DATA = d; S.anchor = d.today;
+    OPS = d.ops.map(([date, amount, cat, account, dest, comment, kind]) => ({ date, amount, cat, account, dest, comment, kind }));
+    OPS.forEach(o => { if (o.kind === 'расход') DAY_TOTALS[o.date] = (DAY_TOTALS[o.date] || 0) - o.amount; });
+    if (['day', 'week', 'month'].includes(params.get('mode'))) S.mode = params.get('mode');  // для проверки: ?mode=day&pick=1
+    render();
+    if (params.get('pick')) openPick();
+  })
+  .catch(e => { document.getElementById('app').innerHTML = `<div class="err">Не удалось загрузить данные (${esc(e.message)})</div>`; });
+</script>
+</body>
+</html>

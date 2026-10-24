@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from html import escape
 
-from .budget import Budget, CashCheck
+from .budget import Free
 from .sheets import DEBT_TYPES, INTEREST_CAT, Account, Category, _num, from_serial
 
 MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля",
@@ -40,9 +40,9 @@ HELP = (
     "Ключи: альфа, сбер — дебетовки; кальфа, ксбер — кредитки; нал, кредит\n"
     "<code>2к кафе</code> — «к» значит тысячи\n\n"
     "Под записью: ↩️ отменить, 🏷 сменить категорию, 💳 сменить счёт.\n"
-    "Аванс и зарплату записывай, когда пришли (<code>+52000 зп</code>) — из них считается бюджет периода.\n\n"
+    "Аванс и зарплату записывай, когда пришли (<code>+52000 зп</code>) — так бот поймёт, до какой зарплаты считать.\n\n"
     "<b>Команды</b> (или кнопки меню внизу)\n"
-    "/today — можно в день по бюджету периода (от поступления до поступления) и касса до зарплаты\n"
+    "/today — итоги дня и сколько можно тратить в день до зарплаты\n"
     "/balance — остатки по счетам\n"
     "/debts — долги и куда гасить\n"
     "/month — итоги месяца\n"
@@ -85,44 +85,32 @@ def _pay(d: date, name: str, amount: float) -> str:
     return f"{day(d)} — {escape(name)}: {money(amount)}"
 
 
-def cash_warning(c: CashCheck, until: date) -> str | None:
-    if c.uncovered is None:
+def cash_warning(f: Free) -> str | None:
+    u = f.uncovered
+    if u is None:
         return None
-    d, name, _ = c.uncovered
-    return (f"⚠️ До {day(until)} не хватает {money(-c.after)}: "
-            f"не покрыт платёж {day(d)} — {escape(name)}")
+    return (f"⚠️ До зарплаты {day(f.until)} не хватает {money(-f.free)}: "
+            f"не покрыт платёж {day(u[0])} — {escape(u[1])}")
 
 
-def today_text(b: Budget, c: CashCheck, day_block: str, upcoming: list[tuple[date, str, float]]) -> str:
-    """Итоги дня сверху, ниже — бюджет периода и касса."""
-    p = b.period
-    if b.overspent:
-        head = f"<b>⚠️ Бюджет периода превышен на {money(b.overspent)}</b> — можно в день: 0 ₽"
+def today_text(f: Free, day_block: str, upcoming: list[tuple[date, str, float]]) -> str:
+    """Итоги дня сверху, ниже — свободные деньги до зарплаты: из чего они складываются."""
+    if f.free < 0:
+        head = f"<b>⚠️ До зарплаты не хватает {money(-f.free)}</b> — тратить только необходимое"
+    elif f.left_today < 0:
+        head = f"<b>Сегодня сверх лимита на {money(-f.left_today)}</b> (лимит {money(f.per_day)} в день)"
     else:
-        head = f"<b>Можно тратить в день: {money(b.per_day)}</b>"
+        head = f"<b>Можно ещё сегодня: {money(f.left_today)}</b> (лимит {money(f.per_day)} в день)"
     lines = [day_block, "", head, "",
-             f"<b>Период {day(p.start)} → {day(p.end)}</b>, осталось {b.days_left} дн. (с сегодня)"]
-    if b.from_balances:
-        lines.append(f"Доход: {money(b.income)} — остатки на начало учёта + поступления")
-    elif b.income:
-        lines.append(f"Доход: {money(b.income)}")
-    else:
-        lines.append("Доход: поступлений в этом периоде не записано — запиши: <code>+52000 зп</code>")
-    lines.append(f"− обязательные: {money(b.obligatory)}")
-    lines += [f"   {_pay(*x)}" for x in b.payments]
-    if b.extra_debt:
-        lines.append(f"− доп. погашение долгов: {money(b.extra_debt)}")
-    lines += [f"= бюджет: {money(b.total)}",
-              f"Потрачено за период: {money(b.spent)}, осталось {money(max(b.left, 0))}"]
-
-    lines += ["", f"<b>Касса до {day(p.end)}</b>"]
-    warn = cash_warning(c, p.end)
+             f"<b>До зарплаты {day(f.until)}</b> — {f.days_left} дн. с сегодня",
+             f"На счетах: {money(f.cash)}"]
+    lines += [f"− {_pay(*x)}" for x in f.payments]
+    if f.extra_debt:
+        lines.append(f"− доп. погашение долгов: {money(f.extra_debt)}")
+    lines.append(f"= свободно: <b>{money(f.free)}</b>")
+    warn = cash_warning(f)
     if warn:
         lines.append(warn)
-    else:
-        lines.append(f"✅ На счетах {money(c.cash)}, платежи {money(c.cash - c.after)} — хватает, "
-                     f"останется {money(c.after)}")
-
     if upcoming:
         lines += ["", "<b>Ближайшие платежи</b>"] + [_pay(*x) for x in upcoming]
     return "\n".join(lines)

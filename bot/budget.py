@@ -1,15 +1,16 @@
-"""Бюджет периода «от поступления до поступления» и проверка кассы.
+"""Свободные деньги до зарплаты.
 
 Чистые функции без сети — покрыты тестами в tests/test_budget.py.
 
-Период: между днями поступлений из «Главной» (B4 — зарплата, B5 — аванс; это самые поздние дни).
-  бюджет   = доходы периода − обязательные платежи периода − доп. погашение долгов
-  в день   = (бюджет − траты с начала периода) / дней до конца периода, включая сегодня
+  свободно  = деньги на обычных счетах − обязательные платежи до зарплаты − доп. погашение долгов (Главная B6)
+  в день    = (свободно + потрачено сегодня) / дней до зарплаты, включая сегодня
+              — лимит «на утро»: в течение дня не скачет от каждой траты
+  на сегодня осталось = в день − потрачено сегодня
 
-Доходы периода — фактически записанные поступления (зарплата не фиксированная, из «Плана» не берём).
-Поступление за EARLY_DAYS дней до начала периода относится к нему: зарплата приходит 5–8, аванс 22–25.
-Если учёт начат внутри периода, начальные остатки обычных счетов считаются его доходом,
-а платежи до даты начала учёта — уже учтёнными в этих остатках.
+До зарплаты — до ближайшего дня поступления из «Главной» (B4, B5), за который деньги ещё не пришли:
+если «Зарплата» записана за EARLY_DAYS дней до этого дня или позже, она уже на счетах — считаем до следующего.
+Ежемесячный платёж «Плана» уже сделан, если за PAID_DAYS дней до его даты был перевод на счёт
+из его названия («Кредит — платёж» → «Кредит»). Разовые пропускаются по статусу «оплачено/пришло».
 """
 from __future__ import annotations
 
@@ -17,7 +18,10 @@ import calendar
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-EARLY_DAYS = 3
+SALARY_CAT = "Зарплата"
+SALARY_MIN = 1000  # мелочь вроде компенсации дороги — не зарплата
+EARLY_DAYS = 7
+PAID_DAYS = 10
 
 
 @dataclass
@@ -36,48 +40,48 @@ class Op:
     amount: float
     account: str
     kind: str  # расход | доход | служебная | проценты
+    cat: str = ""
+    dest: str = ""
 
 
 @dataclass
-class Period:
-    start: date
-    end: date  # не включительно: день следующего поступления
-
-    def __contains__(self, d: date) -> bool:
-        return self.start <= d < self.end
-
-
-@dataclass
-class Budget:
-    period: Period
-    days_left: int
-    income: float
-    obligatory: float
-    extra_debt: float
-    spent: float
-    per_day: float  # ≥ 0
-    overspent: float  # на сколько траты превысили бюджет, ≥ 0
-    from_balances: bool  # в доходе есть начальные остатки (учёт начат в этом периоде)
+class Free:
+    today: date
+    until: date  # день зарплаты (не включительно)
+    cash: float  # на обычных счетах
     payments: list[tuple[date, str, float]] = field(default_factory=list)
+    extra_debt: float = 0.0
+    spent_today: float = 0.0
 
     @property
-    def total(self) -> float:
-        return self.income - self.obligatory - self.extra_debt
+    def days_left(self) -> int:
+        return (self.until - self.today).days
 
     @property
-    def left(self) -> float:
-        return self.total - self.spent
-
-
-@dataclass
-class CashCheck:
-    cash: float
-    payments: list[tuple[date, str, float]]
-    uncovered: tuple[date, str, float] | None  # первый платёж, на который не хватает
+    def obligatory(self) -> float:
+        return sum(a for _, _, a in self.payments)
 
     @property
-    def after(self) -> float:
-        return self.cash - sum(a for _, _, a in self.payments)
+    def free(self) -> float:
+        return self.cash - self.obligatory - self.extra_debt
+
+    @property
+    def per_day(self) -> float:
+        return max(0, round((self.free + self.spent_today) / self.days_left))
+
+    @property
+    def left_today(self) -> float:
+        return self.per_day - self.spent_today
+
+    @property
+    def uncovered(self) -> tuple[date, str, float] | None:
+        """Первый платёж, на который не хватает денег на счетах."""
+        left = self.cash
+        for p in self.payments:
+            left -= p[2]
+            if left < 0:
+                return p
+        return None
 
 
 def _on_day(y: int, m: int, d: int) -> date:
@@ -92,13 +96,22 @@ def _months(start: date, end: date):
         y, m = (y + 1, 1) if m == 12 else (y, m + 1)
 
 
-def period_for(today: date, income_days: list[int]) -> Period:
+def income_dates(today: date, income_days: list[int]) -> list[date]:
+    """Дни поступлений после сегодня, на ~2 месяца вперёд."""
     days = sorted({d for d in income_days if d})
-    marks = sorted(_on_day(y, m, d) for y, m in _months(today - timedelta(days=62), today + timedelta(days=62))
-                   for d in days)
-    start = max(x for x in marks if x <= today)
-    end = min(x for x in marks if x > today)
-    return Period(start, end)
+    return sorted(x for y, m in _months(today, today + timedelta(days=70)) for d in days
+                  if (x := _on_day(y, m, d)) > today)
+
+
+def next_income(today: date, income_days: list[int], ops: list[Op]) -> date:
+    """Ближайший день зарплаты, за который она ещё не пришла."""
+    marks = income_dates(today, income_days)
+    for d in marks:
+        got = sum(o.amount for o in ops if o.kind == "доход" and o.cat == SALARY_CAT
+                  and d - timedelta(days=EARLY_DAYS) <= o.day <= today)
+        if got < SALARY_MIN:
+            return d
+    return marks[-1]
 
 
 def plan_dates(row: PlanRow, start: date, end: date) -> list[date]:
@@ -118,38 +131,15 @@ def payments_between(plan: list[PlanRow], start: date, end: date) -> list[tuple[
     return sorted(res)
 
 
-def income_period(d: date, income_days: list[int]) -> Period:
-    """К какому периоду относится поступление: за EARLY_DAYS до начала — уже к новому."""
-    return period_for(d + timedelta(days=EARLY_DAYS), income_days)
+def _paid(name: str, due: date, today: date, ops: list[Op]) -> bool:
+    target = name.split(" — ")[0].strip()
+    return any(o.kind == "служебная" and o.dest == target and due - timedelta(days=PAID_DAYS) <= o.day <= today
+               for o in ops)
 
 
-def period_budget(today: date, income_days: list[int], ops: list[Op], plan: list[PlanRow],
-                  cash_start: float, tracking_start: date | None, extra_debt: float = 0.0) -> Budget:
-    p = period_for(today, income_days)
-    from_balances = tracking_start is not None and tracking_start in p
-    since = max(p.start, tracking_start) if from_balances else p.start
-
-    income = cash_start if from_balances else 0.0
-    income += sum(o.amount for o in ops if o.kind == "доход" and income_period(o.day, income_days) == p)
-    payments = payments_between(plan, since, p.end)
-    obligatory = sum(a for _, _, a in payments)
-    spent = -sum(o.amount for o in ops if o.kind == "расход" and since <= o.day <= today)
-
-    days_left = (p.end - today).days
-    left = income - obligatory - extra_debt - spent
-    return Budget(p, days_left, income, obligatory, extra_debt, spent,
-                  per_day=round(left / days_left) if left > 0 else 0,
-                  overspent=-left if left < 0 else 0.0,
-                  from_balances=from_balances, payments=payments)
-
-
-def cash_check(today: date, income_days: list[int], cash: float, plan: list[PlanRow]) -> CashCheck:
-    """Хватит ли денег на обычных счетах на платежи до следующего поступления."""
-    p = period_for(today, income_days)
-    payments = payments_between(plan, today, p.end)
-    left, uncovered = cash, None
-    for pay in payments:
-        left -= pay[2]
-        if left < 0 and uncovered is None:
-            uncovered = pay
-    return CashCheck(cash, payments, uncovered)
+def free_money(today: date, income_days: list[int], ops: list[Op], plan: list[PlanRow],
+               cash: float, extra_debt: float = 0.0) -> Free:
+    until = next_income(today, income_days, ops)
+    pays = [p for p in payments_between(plan, today, until) if not _paid(p[1], p[0], today, ops)]
+    spent = -sum(o.amount for o in ops if o.kind == "расход" and o.day == today)
+    return Free(today, until, cash, pays, extra_debt, spent)

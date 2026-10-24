@@ -2,7 +2,7 @@
 from datetime import date
 
 from bot import reports
-from bot.budget import PlanRow, cash_check, period_budget, Op
+from bot.budget import Free, PlanRow
 from bot.sheets import INTEREST_CAT, Category
 
 CATS = [
@@ -39,27 +39,23 @@ def test_spent_line_format():
         "<i>Сегодня: 1 289 ₽ · Сентябрь: 5 400 ₽</i>"
 
 
-def test_today_real_case():
-    """29.09: учёт с 28.09, на утро 3 176 ₽, потрачено 1 289 ₽, Сберу 10 545 ₽ 5 октября."""
-    today = date(2026, 9, 29)
-    b = period_budget(today, [8, 25], [Op(today, -1289, "Дебет Альфа", "расход")], PLAN,
-                      3176, date(2026, 9, 28))
-    c = cash_check(today, [8, 25], 1887, PLAN)
-    text = reports.today_text(b, c, "Итоги дня", [(date(2026, 10, 5), "Кредитка Сбер — платёж", 10545)])
-    assert "Бюджет периода превышен на 8 658 ₽" in text and "можно в день: 0 ₽" in text
-    assert "Период 25 сентября → 8 октября</b>, осталось 9 дн." in text
-    assert "Кредит — платёж" not in text  # 27.09 — до начала учёта
-    assert "не покрыт платёж 5 октября — Кредитка Сбер — платёж" in text
+def test_today_shows_how_free_money_is_counted():
+    pays = [(date(2026, 10, 27), "Кредит — платёж", 4083), (date(2026, 11, 5), "Кредитка Сбер — платёж", 10545)]
+    f = Free(date(2026, 10, 24), date(2026, 11, 8), 25919, pays, spent_today=342)
+    text = reports.today_text(f, "Итоги дня", pays)
+    assert text.startswith("Итоги дня")
+    assert f"Можно ещё сегодня: {reports.money(434)}</b> (лимит {reports.money(776)} в день)" in text
+    assert "До зарплаты 8 ноября</b> — 15 дн." in text
+    assert f"− 27 октября — Кредит — платёж: {reports.money(4083)}" in text
+    assert f"= свободно: <b>{reports.money(11291)}</b>" in text and "⚠️" not in text
 
 
-def test_today_ok_and_no_income():
-    today = date(2026, 10, 10)
-    ok = period_budget(today, [8, 25], [Op(date(2026, 10, 6), 60000, "А", "доход")], PLAN, 0, None)
-    text = reports.today_text(ok, cash_check(today, [8, 25], 50000, PLAN), "", [])
-    assert "Можно тратить в день: 4 000 ₽" in text and "✅" in text  # 60000 / 15 дн.
-    empty = period_budget(today, [8, 25], [], PLAN, 0, None)
-    assert "поступлений в этом периоде не записано" in reports.today_text(
-        empty, cash_check(today, [8, 25], 0, PLAN), "", [])
+def test_today_over_limit_and_shortfall():
+    over = Free(date(2026, 10, 24), date(2026, 11, 8), 15000, [], spent_today=3000)
+    assert "Сегодня сверх лимита" in reports.today_text(over, "", [])
+    short = Free(date(2026, 10, 24), date(2026, 11, 8), 5000, [(date(2026, 11, 5), "Сбер", 10545)])
+    text = reports.today_text(short, "", [])
+    assert f"До зарплаты не хватает {reports.money(5545)}" in text and "не покрыт платёж 5 ноября — Сбер" in text
 
 
 def test_month_interest_separate():
