@@ -11,6 +11,9 @@
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
+  --safe-top:max(env(safe-area-inset-top,0px),var(--tg-safe-area-inset-top,0px));
+  --safe-bottom:max(env(safe-area-inset-bottom,0px),var(--tg-safe-area-inset-bottom,0px));
+  --tg-top:var(--tg-content-safe-area-inset-top,0px);  /* кнопки «Закрыть» и «⋯» поверх приложения */
   color-scheme:light;
   --bg:#efefef; --card:#fff; --fill:#f3f3f3; --fill-2:#e6e6e6; --ink:#000; --ink-2:rgba(0,0,0,.56); --ink-3:rgba(0,0,0,.34);
   --line:rgba(0,0,0,.06); --shadow:0 12px 28px rgba(0,0,0,.035);
@@ -30,8 +33,8 @@
 }
 html,body{background:var(--bg);color:var(--ink);font-family:'Inter',-apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased;
   -webkit-text-size-adjust:100%;overflow-x:hidden}
-body{padding-bottom:calc(7.5rem + env(safe-area-inset-bottom,0px))}
-#app{max-width:430px;margin:0 auto;padding:calc(1.25rem + env(safe-area-inset-top,0px)) 1rem 0}
+body{padding-bottom:calc(7.5rem + var(--safe-bottom))}
+#app{max-width:430px;margin:0 auto;padding:calc(1.25rem + var(--safe-top) + var(--tg-top)) 1rem 0}
 button,input{font:inherit;border:0;background:none;color:inherit;outline:none}
 button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 input[type=search]::-webkit-search-cancel-button{display:none}
@@ -182,7 +185,7 @@ svg{display:block;overflow:visible}
 .pers .cal{font-size:.7rem;color:var(--ink-3);vertical-align:3px}
 .sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:80;opacity:0;transition:opacity .2s}
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:81;max-width:430px;margin:0 auto;background:var(--card);border-radius:1.75rem 1.75rem 0 0;
-  padding:.6rem 1.1rem calc(1.4rem + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
+  padding:.6rem 1.1rem calc(1.4rem + var(--safe-bottom));transform:translateY(100%);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
 .sheet.on{transform:none} .sheet-bg.on{opacity:1}
 .sheet .grab{width:38px;height:5px;border-radius:9px;background:var(--fill-2);margin:0 auto .8rem}
 .sheet .sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem}
@@ -205,7 +208,7 @@ svg{display:block;overflow:visible}
 .sheet .hint{font-size:.7rem;color:var(--ink-3);text-align:center;margin-top:.8rem}
 
 /* нижнее меню */
-.nav{position:fixed;left:0;right:0;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;justify-content:center;z-index:50;pointer-events:none}
+.nav{position:fixed;left:0;right:0;bottom:calc(12px + var(--safe-bottom));display:flex;justify-content:center;z-index:50;pointer-events:none}
 .nav .bar{pointer-events:auto;display:flex;gap:2px;background:var(--nav);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border-radius:999px;border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.12);padding:5px}
 .nav button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:.45rem 1.2rem .4rem;border-radius:999px;font-size:.62rem;font-weight:650;
@@ -247,7 +250,13 @@ function applyTheme() {
 }
 applyTheme();
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
-if (tg) { tg.ready(); tg.expand(); tg.onEvent?.('themeChanged', applyTheme); }
+if (tg) {
+  tg.ready(); tg.expand();
+  tg.onEvent?.('themeChanged', applyTheme);
+  // на телефоне — во весь экран (Bot API 8.0+); свайп вниз не закрывает приложение, а листает
+  try { if (tg.isVersionAtLeast?.('8.0') && ['ios', 'android'].includes(tg.platform)) tg.requestFullscreen(); } catch (e) {}
+  try { tg.disableVerticalSwipes?.(); } catch (e) {}
+}
 const haptic = () => tg?.HapticFeedback?.selectionChanged();
 
 /* ---------- формат ---------- */
