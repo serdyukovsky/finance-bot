@@ -352,6 +352,14 @@ def build_router(cfg: Config, svc: Service) -> Router:
     async def stranger_cb(c: CallbackQuery):
         await c.answer("Это личный бот.")
 
+    @router.message(Command("app"), allowed)
+    async def app_(m: Message):
+        if not cfg.webapp_url:
+            await m.answer("Мини-приложение не настроено (WEBAPP_URL).")
+            return
+        await m.answer("📊 Аналитика: траты по дням и категориям, свободно до зарплаты, долги.",
+                       reply_markup=kb.webapp(cfg.webapp_url))
+
     @router.message(CommandStart(), allowed)
     @router.message(Command("help"), allowed)
     async def help_(m: Message):

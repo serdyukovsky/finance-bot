@@ -10,7 +10,7 @@ from aiogram.client.session.middlewares.base import BaseRequestMiddleware
 from aiogram.methods import GetUpdates
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramNetworkError
-from aiogram.types import BotCommand, ErrorEvent, MenuButtonWebApp, WebAppInfo
+from aiogram.types import BotCommand, ErrorEvent, MenuButtonCommands
 
 from .config import load
 from .handlers import Service, build_router, reminder_loop
@@ -24,6 +24,7 @@ COMMANDS = [
     BotCommand(command="month", description="Итоги месяца"),
     BotCommand(command="pay", description="Платёж по долгу"),
     BotCommand(command="undo", description="Отменить последнюю запись"),
+    BotCommand(command="app", description="Аналитика — мини-приложение"),
     BotCommand(command="help", description="Как записывать"),
 ]
 
@@ -46,13 +47,13 @@ class RetryNetwork(BaseRequestMiddleware):
 
 
 async def set_commands(bot: Bot, cfg) -> None:
-    """Меню команд и кнопка «Аналитика» слева от ввода — не критично: пробуем в фоне, пока не получится."""
+    """Меню команд слева от ввода — не критично: пробуем в фоне, пока не получится.
+    Приложение открывается из профиля бота (Main Mini App в BotFather) и командой /app."""
     while True:
         try:
             await bot.set_my_commands(COMMANDS)
-            if cfg.webapp_url and cfg.allowed_user_id:
-                await bot.set_chat_menu_button(chat_id=cfg.allowed_user_id, menu_button=MenuButtonWebApp(
-                    text="Аналитика", web_app=WebAppInfo(url=cfg.webapp_url)))
+            if cfg.allowed_user_id:
+                await bot.set_chat_menu_button(chat_id=cfg.allowed_user_id, menu_button=MenuButtonCommands())
             return
         except TelegramNetworkError:
             await asyncio.sleep(60)

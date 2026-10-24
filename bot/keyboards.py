@@ -15,7 +15,7 @@ callback_data (≤ 64 байт):
 from __future__ import annotations
 
 from aiogram.types import InlineKeyboardButton as B
-from aiogram.types import InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, WebAppInfo
 
 from .reports import money
 
@@ -30,6 +30,11 @@ MENU_UNDO = "↩️ Отменить"
 def num(x: float) -> str:
     """Сумма для callback_data: без хвостовых нулей и экспоненты."""
     return f"{x:.2f}".rstrip("0").rstrip(".")
+
+
+def webapp(url: str) -> InlineKeyboardMarkup:
+    """Inline-кнопка: из неё Telegram передаёт подпись initData (из кнопок нижнего меню — нет)."""
+    return InlineKeyboardMarkup(inline_keyboard=[[B(text="📊 Открыть аналитику", web_app=WebAppInfo(url=url))]])
 
 
 def main_menu() -> ReplyKeyboardMarkup:
