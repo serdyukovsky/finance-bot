@@ -71,6 +71,6 @@ def build_app(cfg: Config, dashboard) -> web.Application:
 async def serve(cfg: Config, dashboard) -> web.AppRunner:
     runner = web.AppRunner(build_app(cfg, dashboard), access_log=None)
     await runner.setup()
-    await web.TCPSite(runner, "0.0.0.0", cfg.web_port).start()
+    await web.TCPSite(runner, "127.0.0.1", cfg.web_port).start()  # контейнер в сети хоста
     log.info("mini app on :%d", cfg.web_port)
     return runner
