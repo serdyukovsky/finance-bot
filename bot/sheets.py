@@ -82,6 +82,7 @@ class Category:
 
 class Sheets:
     CACHE_TTL = 60
+    PREFETCH_TTL = 10  # пакетное чтение живёт ровно на один сбор данных
 
     def __init__(self, credentials_path: str, sheet_id: str):
         # BackOff: при 429 (лимит 60 чтений/мин) ждёт и повторяет, а не падает
@@ -89,6 +90,8 @@ class Sheets:
         self.ss = gc.open_by_key(sheet_id)
         self._ws: dict[str, gspread.Worksheet] = {}
         self._cache: dict[str, tuple[float, object]] = {}
+        self._prefetched: dict[tuple[str, str], tuple[float, list]] = {}
+        self._writes = 0
         # «прочитать номер строки → записать» должно быть атомарным:
         # aiogram обрабатывает сообщения параллельно
         self._write_lock = threading.Lock()
@@ -102,9 +105,29 @@ class Sheets:
         return self._ws[sheet]
 
     def _get(self, sheet: str, rng: str) -> list[list]:
+        hit = self._prefetched.get((sheet, rng))
+        if hit and time.time() - hit[0] < self.PREFETCH_TTL:
+            return hit[1]
         return self.ws(sheet).get(
             rng, value_render_option=ValueRenderOption.unformatted
         )
+
+    def prefetch(self, ranges: list[tuple[str, str]]) -> None:
+        """Несколько диапазонов одним запросом к Google — для мини-приложения, которому нужно всё сразу."""
+        writes = self._writes
+        res = self.ss.values_batch_get([f"'{sh}'!{rng}" for sh, rng in ranges],
+                                       params={"valueRenderOption": "UNFORMATTED_VALUE"})
+        if writes != self._writes:  # пока читали, бот что-то записал — снимок уже устарел
+            return
+        now = time.time()
+        for key, vr in zip(ranges, res.get("valueRanges", [])):
+            self._prefetched[key] = (now, vr.get("values", []))
+
+    def _after_write(self) -> None:
+        """После записи: балансы пересчитались, пакетный снимок устарел."""
+        self._writes += 1
+        self._prefetched.clear()
+        self._cache.pop("accounts", None)
 
     def _cached(self, key: str, loader, fresh: bool):
         now = time.time()
@@ -171,6 +194,7 @@ class Sheets:
         new = ", ".join(category.keywords + [word])
         self.ws(CAT).update_acell(f"D{category.row}", new)
         self._cache.pop("categories", None)
+        self._after_write()
 
     # ---------- операции ----------
 
@@ -184,7 +208,7 @@ class Sheets:
                 ws.add_rows(max(500, last - ws.row_count))
             values = [[to_serial(r[0]), r[1], r[2], r[3], r[4], r[5], "бот"] for r in rows]
             ws.update(values, f"A{first}:G{last}", value_input_option=ValueInputOption.raw)
-        self._cache.pop("accounts", None)
+        self._after_write()
         return first
 
     def ops(self) -> list[list]:
@@ -204,7 +228,7 @@ class Sheets:
             if abs(_num(_cell(rows[0], 1)) - amount) > 0.01:
                 return None
             ws.delete_rows(first, first + count - 1)
-        self._cache.pop("accounts", None)
+        self._after_write()
         return rows
 
     def update_bot_row(self, row: int, amount: float, col: str, value: str) -> list | None:
@@ -216,7 +240,7 @@ class Sheets:
             if not got or _cell(got[0], 6) != "бот" or abs(_num(_cell(got[0], 1)) - amount) > 0.01:
                 return None
             ws.update([[value]], f"{col}{row}", value_input_option=ValueInputOption.raw)
-        self._cache.pop("accounts", None)
+        self._after_write()
         r = (got[0] + [""] * 7)[:7]
         r["ABCDEFG".index(col)] = value
         return r

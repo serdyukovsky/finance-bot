@@ -16,7 +16,7 @@ from . import keyboards as kb
 from . import reports
 from .config import Config
 from .parser import match_category, parse, parse_amount
-from .sheets import INTEREST_CAT, INTEREST_NOTE, TRANSFER_CAT, Sheets, _cell, _num, from_serial, to_serial
+from .sheets import ACC, CAT, DEBT, HOME, INTEREST_CAT, INTEREST_NOTE, OPS, PLAN, TRANSFER_CAT, Sheets, _cell, _num, from_serial, to_serial
 
 log = logging.getLogger(__name__)
 
@@ -279,7 +279,9 @@ class Service:
         return reports.day_text(s, today, self._spending()["month"])
 
     def dashboard(self) -> dict:
-        """Данные мини-приложения."""
+        """Данные мини-приложения: всё нужное одним запросом к Google, потом сборка."""
+        self.sh.prefetch([(OPS, "A2:H"), (ACC, "A2:J100"), (CAT, "A2:D200"), (PLAN, "A2:G200"),
+                          (HOME, "B4:B6"), (DEBT, "A4:J13"), (DEBT, "B17:B18")])
         return analytics.build(self.today(), self.sh.ops(), self.sh.accounts(fresh=True), self.sh.categories(),
                                self.sh.plan(), self.sh.settings(), self.sh.debts())
 

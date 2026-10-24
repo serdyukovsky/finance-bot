@@ -177,7 +177,7 @@ def test_append_ops_is_serialized():
             self.col += [v[0] for v in values]
 
     sh = Sheets.__new__(Sheets)
-    sh._cache, sh._write_lock = {}, threading.Lock()
+    sh._cache, sh._write_lock, sh._prefetched, sh._writes = {}, threading.Lock(), {}, 0
     ws = WS()
     sh._ws = {"Операции": ws}
     res = []
