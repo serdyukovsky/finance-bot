@@ -676,7 +676,7 @@ const LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 let loadedAt = 0;
 function load() {
   if (!tg?.initData && !LOCAL) {
-    document.querySelector('.nav').hidden = true;
+    document.querySelector('.nav').style.display = 'none';
     document.getElementById('app').innerHTML = '<div class="err">Открой приложение из бота: команда /app или кнопка «Открыть» в профиле бота.</div>';
     return Promise.resolve();
   }
@@ -693,7 +693,7 @@ function load() {
       render(first);
       if (first && params.get('pick')) openPick();
     })
-    .catch(e => { if (!DATA) document.querySelector('.nav').hidden = true; if (!DATA) document.getElementById('app').innerHTML = `<div class="err">Не удалось загрузить данные (${esc(e.message)})</div>`; });
+    .catch(e => { if (!DATA) document.querySelector('.nav').style.display = 'none'; if (!DATA) document.getElementById('app').innerHTML = `<div class="err">Не удалось загрузить данные (${esc(e.message)})</div>`; });
 }
 load();
 // вернулся в приложение через минуту и больше — подтягиваем свежие записи
